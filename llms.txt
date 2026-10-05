@@ -1,0 +1,28 @@
+# mcp-argocd
+
+> MCP server for the Argo CD REST API. It gives AI assistants 37 tools, 7 resources, and 7 prompts to triage application status, sync, roll back, inspect drift, read logs, and manage ApplicationSets, clusters, projects, and repositories.
+
+MCP server that wraps the Argo CD REST API. Works with Argo CD 3.3+ on any install (OSS, Akuity, OpenShift GitOps). Needs an API token; no cluster access. Built with FastMCP, httpx, and Pydantic.
+
+- **Install**: `uvx mcp-argocd`
+- **Version**: 0.1.0
+- **Python**: >=3.10
+- **License**: MIT
+- **Protocol**: MCP 2026-07-28 (MCP 2.0); compatible with 2025-11-25 clients; built on FastMCP 4.x
+- **Transport**: stdio (default), streamable-http (recommended for remote), SSE (deprecated by the 2026-07-28 spec)
+- **Registry**: `io.github.vish288/mcp-argocd`
+- **Required env vars**: `ARGOCD_URL` (base URL including any path prefix), `ARGOCD_TOKEN` (bearer token)
+- **Optional env vars**: `ARGOCD_READ_ONLY` (disable writes), `ARGOCD_TIMEOUT` (request timeout), `ARGOCD_SSL_VERIFY` (SSL verification), `ARGOCD_APP_NAMESPACE` (default appNamespace)
+
+## Documentation
+
+- [README](https://github.com/vish288/mcp-argocd#readme): canonical reference for setup, env vars, all 37 tools, 7 resources, 7 prompts
+- [PyPI](https://pypi.org/project/mcp-argocd/): install via `pip install mcp-argocd` or `uvx mcp-argocd`
+- [GitHub](https://github.com/vish288/mcp-argocd): source code, issue tracker, development setup
+- [MCP Registry](https://registry.modelcontextprotocol.io): discover and install MCP servers
+
+## Optional
+
+- [Changelog](https://github.com/vish288/mcp-argocd/releases): per-version release notes
+- [MCP Specification](https://modelcontextprotocol.io/docs): protocol spec for tools, resources, and prompts
+- [FastMCP](https://github.com/jlowin/fastmcp): Python framework this server is built on

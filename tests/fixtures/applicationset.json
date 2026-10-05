@@ -1,0 +1,80 @@
+{
+  "metadata": {
+    "name": "guestbooks",
+    "namespace": "argocd",
+    "resourceVersion": "9",
+    "uid": "as-uid"
+  },
+  "spec": {
+    "goTemplate": true,
+    "generators": [
+      {
+        "list": {
+          "elements": [
+            {
+              "cluster": "in-cluster"
+            }
+          ]
+        }
+      },
+      {
+        "git": {
+          "repoURL": "https://github.com/argoproj/argocd-example-apps.git",
+          "directories": [
+            {
+              "path": "*"
+            }
+          ]
+        }
+      }
+    ],
+    "strategy": {
+      "type": "RollingSync"
+    },
+    "template": {
+      "metadata": {
+        "name": "{{cluster}}-guestbook"
+      },
+      "spec": {
+        "project": "default",
+        "source": {
+          "repoURL": "https://github.com/argoproj/argocd-example-apps.git",
+          "path": "guestbook",
+          "targetRevision": "HEAD"
+        },
+        "destination": {
+          "server": "https://kubernetes.default.svc",
+          "namespace": "default"
+        }
+      }
+    }
+  },
+  "status": {
+    "conditions": [
+      {
+        "type": "ResourcesUpToDate",
+        "status": "True",
+        "reason": "ApplicationSetUpToDate",
+        "message": "all good"
+      }
+    ],
+    "applicationStatus": [
+      {
+        "application": "in-cluster-guestbook",
+        "status": "Healthy",
+        "step": "1",
+        "message": "synced"
+      }
+    ],
+    "resources": [
+      {
+        "name": "in-cluster-guestbook",
+        "namespace": "argocd",
+        "status": "Synced",
+        "health": {
+          "status": "Healthy"
+        }
+      }
+    ]
+  }
+}

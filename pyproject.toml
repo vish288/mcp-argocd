@@ -1,0 +1,106 @@
+[project]
+name = "mcp-argocd"
+version = "0.1.0"
+description = "Argo CD MCP server for the MCP 2026-07-28 specification (MCP 2.0): application status, sync, rollback, drift, logs, ApplicationSets, and clusters for assistants"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.10"
+authors = [{name = "vish288"}]
+keywords = [
+    "mcp",
+    "mcp-server",
+    "model-context-protocol",
+    "argocd",
+    "argo-cd",
+    "gitops",
+    "kubernetes",
+    "continuous-delivery",
+    "deployment",
+    "sync",
+    "rollback",
+    "applicationset",
+    "devops",
+    "sre",
+    "llm",
+    "ai-agent",
+    "claude",
+    "cursor",
+    "vscode",
+    "windsurf",
+    "fastmcp",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: System :: Systems Administration",
+    "Topic :: System :: Clustering",
+    "Typing :: Typed",
+    "Framework :: Pydantic :: 2",
+]
+dependencies = [
+    "fastmcp>=4.0.10,<5",
+    "httpx>=0.28.0",
+    "pydantic>=2.10.0,<3.0",
+    "python-dotenv>=1.0.1",
+    "click>=8.1.7",
+]
+
+[project.urls]
+Homepage = "https://github.com/vish288/mcp-argocd"
+Repository = "https://github.com/vish288/mcp-argocd"
+Issues = "https://github.com/vish288/mcp-argocd/issues"
+Changelog = "https://github.com/vish288/mcp-argocd/releases"
+Documentation = "https://github.com/vish288/mcp-argocd#readme"
+
+[project.scripts]
+mcp-argocd = "mcp_argocd:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/mcp_argocd"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-cov>=4.1.0",
+    "pytest-asyncio>=0.23.0",
+    "respx>=0.22.0",
+    "ruff>=0.3.0",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "B", "W", "I", "N", "UP", "S", "C4", "EM", "ISC"]
+ignore = []
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "S105", "S106"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+# Network tests are opt-in. They assert on third-party availability, so a blip
+# at pypi.org or shields.io reddens a PR that changed nothing. Run them with
+# `-m network`, or let the weekly link-check workflow do it.
+addopts = "-m 'not network'"
+markers = ["network: hits the live internet; excluded from the default run"]
+
+[tool.coverage.run]
+source = ["src"]
+omit = ["src/mcp_argocd/__init__.py", "src/mcp_argocd/__main__.py"]

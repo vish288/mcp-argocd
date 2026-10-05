@@ -1,0 +1,41 @@
+{
+  "name": "in-cluster",
+  "server": "https://kubernetes.default.svc",
+  "project": "",
+  "labels": {
+    "env": "prod"
+  },
+  "annotations": {
+    "note": "primary"
+  },
+  "namespaces": [
+    "default",
+    "kube-system"
+  ],
+  "shard": 0,
+  "config": {
+    "bearerToken": "SECRET-TOKEN",
+    "tlsClientConfig": {
+      "insecure": false
+    }
+  },
+  "connectionState": {
+    "status": "Successful",
+    "message": "",
+    "attemptedAt": "2026-10-03T09:00:00Z"
+  },
+  "serverVersion": "1.30",
+  "info": {
+    "serverVersion": "1.30",
+    "applicationsCount": 3,
+    "connectionState": {
+      "status": "Successful"
+    },
+    "cacheInfo": {
+      "resourcesCount": 120,
+      "apisCount": 40,
+      "lastCacheSyncTime": "2026-10-03T09:00:00Z"
+    }
+  },
+  "clusterResources": true
+}

@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Evaluation suite for mcp-argocd MCP server.
+  10 read-only questions testing tool composition and multi-step reasoning.
+  Replace placeholder names with real values from your Argo CD instance.
+-->
+<evaluation>
+  <qa_pair id="1">
+    <question>Which applications are OutOfSync?</question>
+    <expected_tools>argocd_list_applications</expected_tools>
+    <answer_contains>items, count, total</answer_contains>
+  </qa_pair>
+
+  <qa_pair id="2">
+    <question>Why is the guestbook application Degraded? Start from its conditions.</question>
+    <expected_tools>argocd_get_application, argocd_get_resource_tree</expected_tools>
+    <answer_contains>sync, health, conditions</answer_contains>
+  </qa_pair>
+
+  <qa_pair id="3">
+    <question>Show the last 5 log lines for the guestbook-ui Deployment in guestbook.</question>
+    <expected_tools>argocd_get_pod_logs</expected_tools>
+    <answer_contains>lines, shown_lines, pods</answer_contains>
+  </qa_pair>
+
+  <qa_pair id="4">
+    <question>What has drifted in the guestbook application right now?</question>
+    <expected_tools>argocd_get_managed_resources</expected_tools>
+    <answer_contains>items, count</answer_contains>
+  </qa_pair>
+
+  <qa_pair id="5">
+    <question>List the deployment history of guestbook and name the current revision.</question>
+    <expected_tools>argocd_get_application_history</expected_tools>
+    <answer_contains>current_revision, items</answer_contains>
+  </qa_pair>
+
+  <qa_pair id="6">
+    <question>What is the phase of the last sync operation on guestbook?</question>
+    <expected_tools>argocd_get_operation</expected_tools>
+    <answer_contains>phase</answer_contains>
+  </qa_pair>
+
+  <qa_pair id="7">
+    <question>Which clusters are registered and what is their connection status?</question>
+    <expected_tools>argocd_list_clusters</expected_tools>
+    <answer_contains>connection, server_version</answer_contains>
+  </qa_pair>
+
+  <qa_pair id="8">
+    <question>Which applications does the guestbooks ApplicationSet generate, and which are failing?</question>
+    <expected_tools>argocd_get_applicationset</expected_tools>
+    <answer_contains>applicationStatus, resources</answer_contains>
+  </qa_pair>
+
+  <qa_pair id="9">
+    <question>Can the current account sync applications? Check the permission.</question>
+    <expected_tools>argocd_can_i</expected_tools>
+    <answer_contains>allowed, resource, action</answer_contains>
+  </qa_pair>
+
+  <qa_pair id="10">
+    <question>What Argo CD server version am I connected to?</question>
+    <expected_tools>argocd_get_version</expected_tools>
+    <answer_contains>version</answer_contains>
+  </qa_pair>
+</evaluation>

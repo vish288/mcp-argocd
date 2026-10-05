@@ -1,0 +1,12 @@
+{
+  "Version": "v3.5.3+abc1234",
+  "GitTag": "v3.5.3",
+  "GitCommit": "abc1234def5678",
+  "BuildDate": "2026-09-14T00:00:00Z",
+  "KustomizeVersion": "v5.4.3",
+  "HelmVersion": "v3.15.2",
+  "KubectlVersion": "v0.31.0",
+  "GoVersion": "go1.23",
+  "Platform": "linux/amd64",
+  "Compiler": "gc"
+}

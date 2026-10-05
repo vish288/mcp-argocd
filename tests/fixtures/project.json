@@ -1,0 +1,65 @@
+{
+  "metadata": {
+    "name": "default",
+    "namespace": "argocd"
+  },
+  "spec": {
+    "description": "Default project",
+    "sourceRepos": [
+      "*"
+    ],
+    "destinations": [
+      {
+        "server": "https://kubernetes.default.svc",
+        "namespace": "*"
+      }
+    ],
+    "clusterResourceWhitelist": [
+      {
+        "group": "*",
+        "kind": "*"
+      }
+    ],
+    "namespaceResourceBlacklist": [
+      {
+        "group": "",
+        "kind": "ResourceQuota"
+      }
+    ],
+    "sourceNamespaces": [
+      "argocd"
+    ],
+    "roles": [
+      {
+        "name": "ci",
+        "description": "CI role",
+        "policies": [
+          "p, proj:default:ci, applications, sync, default/*, allow"
+        ],
+        "groups": [
+          "ci-team"
+        ],
+        "jwtTokens": [
+          {
+            "iat": 1700000000,
+            "id": "tok-1"
+          }
+        ]
+      }
+    ],
+    "syncWindows": [
+      {
+        "kind": "allow",
+        "schedule": "* * * * *",
+        "duration": "1h",
+        "applications": [
+          "*"
+        ],
+        "manualSync": true
+      }
+    ],
+    "orphanedResources": {
+      "warn": true
+    }
+  }
+}

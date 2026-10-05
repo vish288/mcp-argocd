@@ -1,0 +1,24 @@
+{
+  "repo": "https://github.com/argoproj/argocd-example-apps.git",
+  "name": "example-apps",
+  "type": "git",
+  "project": "default",
+  "username": "git",
+  "password": "SECRET",
+  "sshPrivateKey": "SECRET",
+  "tlsClientCertData": "SECRET",
+  "tlsClientCertKey": "SECRET",
+  "githubAppPrivateKey": "SECRET",
+  "bearerToken": "SECRET",
+  "gcpServiceAccountKey": "SECRET",
+  "azureServicePrincipalClientSecret": "SECRET",
+  "insecure": false,
+  "enableLfs": false,
+  "enableOCI": false,
+  "inheritedCreds": false,
+  "connectionState": {
+    "status": "Successful",
+    "message": "",
+    "attemptedAt": "2026-10-03T09:00:00Z"
+  }
+}

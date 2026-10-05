@@ -1,0 +1,211 @@
+# mcp-argocd
+
+> MCP server for the Argo CD REST API. It gives AI assistants 37 tools, 7 resources, and 7 prompts to triage application status, sync, roll back, inspect drift, read logs, and manage ApplicationSets, clusters, projects, and repositories.
+
+MCP server that wraps the Argo CD REST API. Works with Argo CD 3.3+ on any install (OSS, Akuity, OpenShift GitOps). Needs an API token; no cluster access. Built with FastMCP, httpx, and Pydantic.
+
+- **Install**: `uvx mcp-argocd`
+- **Version**: 0.1.0
+- **Python**: >=3.10
+- **License**: MIT
+- **Protocol**: MCP 2026-07-28 (MCP 2.0); compatible with 2025-11-25 clients; built on FastMCP 4.x
+- **Transport**: stdio (default), streamable-http (recommended for remote), SSE (deprecated by the 2026-07-28 spec)
+- **Registry**: `io.github.vish288/mcp-argocd`
+- **Required env vars**: `ARGOCD_URL` (base URL including any path prefix), `ARGOCD_TOKEN` (bearer token)
+- **Optional env vars**: `ARGOCD_READ_ONLY` (disable writes), `ARGOCD_TIMEOUT` (request timeout), `ARGOCD_SSL_VERIFY` (SSL verification), `ARGOCD_APP_NAMESPACE` (default appNamespace)
+
+## Documentation
+
+- [README](https://github.com/vish288/mcp-argocd#readme): canonical reference for setup, env vars, all 37 tools, 7 resources, 7 prompts
+- [PyPI](https://pypi.org/project/mcp-argocd/): install via `pip install mcp-argocd` or `uvx mcp-argocd`
+- [GitHub](https://github.com/vish288/mcp-argocd): source code, issue tracker, development setup
+- [MCP Registry](https://registry.modelcontextprotocol.io): discover and install MCP servers
+
+## Optional
+
+- [Changelog](https://github.com/vish288/mcp-argocd/releases): per-version release notes
+- [MCP Specification](https://modelcontextprotocol.io/docs): protocol spec for tools, resources, and prompts
+- [FastMCP](https://github.com/jlowin/fastmcp): Python framework this server is built on
+
+## Configuration
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `ARGOCD_URL` | Yes | - | Base URL including any path prefix (e.g. `https://argocd.example.com`). Also reads `ARGOCD_SERVER`. |
+| `ARGOCD_TOKEN` | Yes | - | Bearer token. Also reads `ARGOCD_AUTH_TOKEN` and `ARGOCD_API_TOKEN`. |
+| `ARGOCD_READ_ONLY` | No | `false` | Set to `true` to block the 9 write tools before any API call |
+| `ARGOCD_TIMEOUT` | No | `30` | Request timeout in seconds |
+| `ARGOCD_SSL_VERIFY` | No | `true` | Set to `false` to skip SSL verification (`ARGOCD_INSECURE=true` is an alias) |
+| `ARGOCD_APP_NAMESPACE` | No | - | Default `appNamespace` for apps-in-any-namespace installs |
+
+The server checks the token variables in this order: `ARGOCD_TOKEN`, `ARGOCD_AUTH_TOKEN`, `ARGOCD_API_TOKEN`. The first match wins.
+
+### CLI Options
+
+```bash
+# Default: stdio transport (for MCP clients)
+uvx mcp-argocd
+
+# HTTP transport — streamable-http is recommended for remote use
+uvx mcp-argocd --transport streamable-http --port 9000
+
+# SSE transport — deprecated by MCP 2026-07-28; still works, prints a warning
+uvx mcp-argocd --transport sse --host 127.0.0.1 --port 8000
+
+# CLI overrides for config
+uvx mcp-argocd --argocd-url https://argocd.example.com --argocd-token <token> --read-only --insecure
+```
+
+### MCP Client Configuration Example
+
+```json
+{
+  "mcpServers": {
+    "argocd": {
+      "command": "uvx",
+      "args": ["mcp-argocd"],
+      "env": {
+        "ARGOCD_URL": "https://argocd.example.com",
+        "ARGOCD_TOKEN": "<token>"
+      }
+    }
+  }
+}
+```
+
+## Required Permissions
+
+| Operation | Minimum Argo CD RBAC |
+|-----------|----------------------|
+| Read apps, resources, events | `applications, get` |
+| Read pod logs | `logs, get` (separate since 3.0) |
+| Sync, rollback | `applications, sync` (and `applications, override` for a revision override) |
+| Delete apps or resources | `applications, delete` (fine-grained `delete/*` sub-resources in 3.0+) |
+| Run resource actions | `applications, action/<group>/<kind>/<action>` |
+| Read clusters, projects, repositories | `clusters, get` / `projects, get` / `repositories, get` |
+
+## Tools (37)
+
+### Applications — read (14)
+
+| Tool | Description |
+|------|-------------|
+| `argocd_list_applications` | List applications with slim rows; filter by sync, health, destination |
+| `argocd_get_application` | Get one application: spec, sync/health, conditions, operation, resource counts |
+| `argocd_get_resource_tree` | Get the live resource tree as slim nodes (kind, name, health, parent) |
+| `argocd_get_managed_resources` | Get live-vs-desired diffs for managed resources |
+| `argocd_get_resource` | Get a single managed resource's live manifest |
+| `argocd_get_manifests` | Get the rendered desired manifests for a revision |
+| `argocd_get_application_events` | Get Kubernetes events for an application |
+| `argocd_get_pod_logs` | Get container logs (never follows) |
+| `argocd_get_application_history` | Get deployment history, newest first |
+| `argocd_get_revision_metadata` | Get commit metadata for a revision |
+| `argocd_get_operation` | Get the current or last sync operation |
+| `argocd_wait_for_operation` | Poll until an operation is terminal, gone, or times out |
+| `argocd_get_sync_windows` | Get sync windows and whether the app can sync now |
+| `argocd_list_resource_actions` | List the custom actions available on a resource |
+
+### Applications — write (8)
+
+| Tool | Description |
+|------|-------------|
+| `argocd_sync_application` | Sync an application; prune and force can delete or recreate resources |
+| `argocd_rollback_application` | Roll back to a prior deployment history entry |
+| `argocd_terminate_operation` | Terminate the running sync operation |
+| `argocd_create_application` | Create an application from flattened parameters |
+| `argocd_patch_application` | Patch an application — the one tool for every update |
+| `argocd_delete_application` | Delete an application |
+| `argocd_run_resource_action` | Run a custom resource action (restart, pause) |
+| `argocd_delete_resource` | Delete a single managed resource so the controller recreates it |
+
+### ApplicationSets (3)
+
+| Tool | Description |
+|------|-------------|
+| `argocd_list_applicationsets` | List ApplicationSets with slim rows |
+| `argocd_get_applicationset` | Get one ApplicationSet and the status of its generated apps |
+| `argocd_generate_applicationset` | Dry-run the generators to preview generated apps; creates nothing |
+
+### Projects (2)
+
+| Tool | Description |
+|------|-------------|
+| `argocd_list_projects` | List projects with slim rows |
+| `argocd_get_project` | Get a project's repos, destinations, whitelists, and roles |
+
+### Clusters (3)
+
+| Tool | Description |
+|------|-------------|
+| `argocd_list_clusters` | List clusters with connection state, versions, and counts |
+| `argocd_get_cluster` | Get one cluster by name or server URL |
+| `argocd_invalidate_cluster_cache` | Invalidate a cluster's cached resources |
+
+### Repositories (3)
+
+| Tool | Description |
+|------|-------------|
+| `argocd_list_repositories` | List repositories; credentials are never returned |
+| `argocd_get_repository_refs` | Get a repository's branches and tags |
+| `argocd_list_repository_apps` | List the application paths discoverable in a repository |
+
+### Server and account (4)
+
+| Tool | Description |
+|------|-------------|
+| `argocd_get_version` | Get the Argo CD server version and bundled tool versions |
+| `argocd_get_userinfo` | Get the authenticated identity: username, groups, issuer |
+| `argocd_can_i` | Check whether the account may perform a resource/action |
+| `argocd_get_settings` | Get server settings and enabled features |
+
+## Resources (7)
+
+The server exposes curated GitOps rules and guides as MCP resources clients can read on demand.
+
+- `resource://rules/sync-safety` — Sync Safety Rules: dry-run first, prune/force, sync options, sync windows
+- `resource://rules/rollback` — Rollback Rules: history limits, auto-sync blocking, fixing Git afterward
+- `resource://rules/gitops-change-flow` — GitOps Change Flow: Git as source of truth, selfHeal, live fixes
+- `resource://rules/applicationsets` — ApplicationSet Rules: the set owns its apps; preview with generate
+- `resource://guides/status-triage` — Status Triage Guide: sync x health matrix and investigation order
+- `resource://guides/rbac` — RBAC and Permission Errors: the model, fine-grained actions, reading 403s
+- `resource://guides/api-token-setup` — API Token Setup: apiKey accounts, generate-token, read-only policy
+
+## Prompts (7)
+
+The server provides MCP prompts — reusable multi-tool workflow templates clients can surface as slash commands.
+
+- `triage_application` — diagnose a Degraded or OutOfSync app via conditions, tree, events, logs
+- `diagnose_sync_failure` — classify why the last sync failed and recommend a fix
+- `review_drift` — review OutOfSync apps and recommend sync, a Git change, or an ignore rule
+- `safe_sync` — check sync windows, dry-run, then sync and wait
+- `rollback_application` — pick history, check auto-sync, roll back, and remind to fix Git
+- `fleet_status` — report clusters and apps that are not Synced/Healthy
+- `inspect_applicationset` — compare generated vs existing apps for an ApplicationSet
+
+## Security Considerations
+
+- **Token scope**: use the minimum RBAC the workflow needs; a read-only role needs `applications, get` and `logs, get`.
+- **Read-only mode**: `ARGOCD_READ_ONLY=true` blocks all 9 write tools before any API call.
+- **SSL verification**: `true` by default. Only disable for self-signed certificates in trusted networks.
+- **Secret scrubbing**: repository, cluster, and project payloads are scrubbed of credentials, cluster `config`, and role `jwtTokens` — even with `full=True`. `has_credentials` reports whether repo credentials exist.
+- **MCP tool annotations**: every tool declares `readOnlyHint`, `destructiveHint`, and `idempotentHint` for client-side permission prompts.
+- **No credential storage**: the server reads the token from the environment at startup and never persists it.
+- **Destructive tools**: `argocd_sync_application`, `argocd_rollback_application`, `argocd_terminate_operation`, `argocd_delete_application`, `argocd_run_resource_action`, `argocd_delete_resource`.
+
+## Rate Limits
+
+Argo CD does not impose fixed API rate limits; load is bounded by the API server and repo-server. List endpoints have no server-side paging, so a very large install pays one full fetch per list call; the server pages the result client-side. Pod logs are capped at 1000 lines.
+
+## Development
+
+```bash
+git clone https://github.com/vish288/mcp-argocd.git
+cd mcp-argocd
+uv sync --all-extras
+
+uv run pytest --cov
+uv run ruff check .
+uv run ruff format --check .
+```
+
+Dependencies: fastmcp>=4.0.10,<5, httpx>=0.28.0, pydantic>=2.10.0, python-dotenv>=1.0.1, click>=8.1.7

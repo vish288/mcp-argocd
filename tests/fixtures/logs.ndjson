@@ -1,0 +1,4 @@
+{"result":{"content":"Listening on :8080","podName":"guestbook-ui-xyz","timeStamp":"2026-10-03T09:00:00Z","timeStampStr":"2026-10-03T09:00:00.000Z","last":false}}
+{"result":{"content":"GET / 200","podName":"guestbook-ui-xyz","timeStamp":"2026-10-03T09:00:01Z","timeStampStr":"2026-10-03T09:00:01.000Z","last":false}}
+{"result":{"content":"ERROR connection refused","podName":"guestbook-ui-xyz","timeStamp":"2026-10-03T09:00:02Z","timeStampStr":"2026-10-03T09:00:02.000Z","last":false}}
+{"result":{"content":"","podName":"guestbook-ui-xyz","timeStamp":"2026-10-03T09:00:02Z","timeStampStr":"2026-10-03T09:00:02.000Z","last":true}}

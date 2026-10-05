@@ -1,0 +1,87 @@
+{
+  "nodes": [
+    {
+      "group": "apps",
+      "kind": "Deployment",
+      "name": "guestbook-ui",
+      "namespace": "default",
+      "version": "v1",
+      "uid": "d-uid",
+      "resourceVersion": "555",
+      "health": {
+        "status": "Healthy"
+      },
+      "images": [
+        "ks-guestbook-demo:0.2"
+      ],
+      "createdAt": "2026-09-01T10:00:00Z",
+      "networkingInfo": {
+        "targetLabels": {
+          "app": "guestbook-ui"
+        }
+      },
+      "info": [
+        {
+          "name": "Revision",
+          "value": "Rev:1"
+        }
+      ]
+    },
+    {
+      "group": "",
+      "kind": "Pod",
+      "name": "guestbook-ui-xyz",
+      "namespace": "default",
+      "version": "v1",
+      "uid": "p-uid",
+      "resourceVersion": "556",
+      "health": {
+        "status": "Degraded",
+        "message": "CrashLoopBackOff"
+      },
+      "images": [
+        "ks-guestbook-demo:0.2"
+      ],
+      "createdAt": "2026-09-01T10:01:00Z",
+      "parentRefs": [
+        {
+          "group": "apps",
+          "kind": "Deployment",
+          "name": "guestbook-ui",
+          "namespace": "default",
+          "uid": "d-uid"
+        }
+      ],
+      "networkingInfo": {
+        "labels": {
+          "app": "guestbook-ui"
+        }
+      },
+      "info": [
+        {
+          "name": "Status Reason",
+          "value": "CrashLoopBackOff"
+        }
+      ]
+    }
+  ],
+  "orphanedNodes": [
+    {
+      "group": "",
+      "kind": "ConfigMap",
+      "name": "orphan-cm",
+      "namespace": "default",
+      "version": "v1",
+      "uid": "o-uid",
+      "health": {
+        "status": "Healthy"
+      }
+    }
+  ],
+  "hosts": [
+    {
+      "name": "node-1"
+    }
+  ],
+  "shardsCount": 0
+}

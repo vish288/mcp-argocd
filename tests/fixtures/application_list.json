@@ -1,0 +1,320 @@
+{
+  "items": [
+    {
+      "metadata": {
+        "name": "guestbook",
+        "namespace": "argocd",
+        "labels": {
+          "team": "platform"
+        },
+        "annotations": {
+          "kubectl.kubernetes.io/last-applied-configuration": "{\"big\":\"blob\"}",
+          "argocd.argoproj.io/tracking-id": "guestbook"
+        },
+        "creationTimestamp": "2026-09-01T10:00:00Z",
+        "resourceVersion": "100234",
+        "uid": "uid-guestbook",
+        "managedFields": [
+          {
+            "manager": "argocd-controller"
+          }
+        ]
+      },
+      "spec": {
+        "project": "default",
+        "source": {
+          "repoURL": "https://github.com/argoproj/argocd-example-apps.git",
+          "path": "guestbook",
+          "targetRevision": "HEAD"
+        },
+        "destination": {
+          "server": "https://kubernetes.default.svc",
+          "namespace": "default"
+        },
+        "revisionHistoryLimit": 10,
+        "syncPolicy": {
+          "automated": {
+            "prune": true,
+            "selfHeal": true
+          }
+        }
+      },
+      "status": {
+        "sync": {
+          "status": "Synced",
+          "revision": "abc123def4567890feed"
+        },
+        "health": {
+          "status": "Healthy",
+          "message": ""
+        },
+        "conditions": [],
+        "operationState": {
+          "phase": "Succeeded",
+          "message": "successfully synced",
+          "startedAt": "2026-10-03T08:59:00Z",
+          "finishedAt": "2026-10-03T09:00:00Z",
+          "retryCount": 0,
+          "operation": {
+            "sync": {
+              "revision": "abc123def4567890feed",
+              "prune": true,
+              "dryRun": false,
+              "syncOptions": [
+                "CreateNamespace=true"
+              ]
+            },
+            "initiatedBy": {
+              "username": "ci-bot",
+              "automated": true
+            }
+          },
+          "syncResult": {
+            "revision": "abc123def4567890feed",
+            "resources": [
+              {
+                "group": "apps",
+                "kind": "Deployment",
+                "name": "guestbook-ui",
+                "namespace": "default",
+                "status": "Synced",
+                "message": "deployment.apps/guestbook-ui configured"
+              },
+              {
+                "group": "",
+                "kind": "Service",
+                "name": "bad",
+                "namespace": "default",
+                "status": "SyncFailed",
+                "message": "admission webhook denied the request"
+              }
+            ]
+          }
+        },
+        "reconciledAt": "2026-10-03T09:00:00Z",
+        "summary": {
+          "images": [
+            "gcr.io/heptio-images/ks-guestbook-demo:0.2"
+          ],
+          "externalURLs": [
+            "https://guestbook.example.com"
+          ]
+        },
+        "history": [
+          {
+            "id": 3,
+            "revision": "abc123def4567890feed",
+            "deployedAt": "2026-10-03T09:00:00Z",
+            "deployStartedAt": "2026-10-03T08:59:00Z",
+            "initiatedBy": {
+              "username": "ci-bot",
+              "automated": true
+            },
+            "source": {
+              "repoURL": "https://github.com/argoproj/argocd-example-apps.git",
+              "path": "guestbook",
+              "targetRevision": "HEAD"
+            }
+          },
+          {
+            "id": 2,
+            "revision": "0ldrev0ldrev0ldrev00",
+            "deployedAt": "2026-10-01T09:00:00Z",
+            "deployStartedAt": "2026-10-01T08:59:00Z",
+            "initiatedBy": {
+              "username": "alice",
+              "automated": false
+            },
+            "source": {
+              "repoURL": "https://github.com/argoproj/argocd-example-apps.git",
+              "path": "guestbook",
+              "targetRevision": "HEAD"
+            }
+          }
+        ],
+        "resources": [
+          {
+            "group": "apps",
+            "kind": "Deployment",
+            "name": "guestbook-ui",
+            "namespace": "default",
+            "status": "Synced",
+            "health": {
+              "status": "Healthy"
+            },
+            "requiresPruning": false,
+            "syncWave": 0
+          },
+          {
+            "group": "",
+            "kind": "Service",
+            "name": "guestbook-ui",
+            "namespace": "default",
+            "status": "OutOfSync",
+            "health": {
+              "status": "Healthy"
+            },
+            "requiresPruning": false,
+            "syncWave": 0
+          },
+          {
+            "group": "",
+            "kind": "Pod",
+            "name": "guestbook-ui-xyz",
+            "namespace": "default",
+            "status": "Synced",
+            "health": {
+              "status": "Degraded",
+              "message": "CrashLoopBackOff"
+            },
+            "requiresPruning": false,
+            "syncWave": 0
+          }
+        ]
+      }
+    },
+    {
+      "metadata": {
+        "name": "payments",
+        "namespace": "argocd",
+        "labels": {
+          "team": "platform"
+        },
+        "annotations": {
+          "kubectl.kubernetes.io/last-applied-configuration": "{\"big\":\"blob\"}",
+          "argocd.argoproj.io/tracking-id": "payments"
+        },
+        "creationTimestamp": "2026-09-01T10:00:00Z",
+        "resourceVersion": "100234",
+        "uid": "uid-payments",
+        "managedFields": [
+          {
+            "manager": "argocd-controller"
+          }
+        ]
+      },
+      "spec": {
+        "project": "default",
+        "source": {
+          "repoURL": "https://github.com/argoproj/argocd-example-apps.git",
+          "path": "guestbook",
+          "targetRevision": "HEAD"
+        },
+        "destination": {
+          "server": "https://kubernetes.default.svc",
+          "namespace": "default"
+        },
+        "revisionHistoryLimit": 10,
+        "syncPolicy": {
+          "automated": {
+            "prune": true,
+            "selfHeal": true
+          }
+        }
+      },
+      "status": {
+        "sync": {
+          "status": "OutOfSync",
+          "revision": "abc123def4567890feed"
+        },
+        "health": {
+          "status": "Degraded",
+          "message": "pods not ready"
+        },
+        "conditions": [
+          {
+            "type": "ComparisonError",
+            "message": "boom",
+            "lastTransitionTime": "2026-10-03T08:00:00Z"
+          }
+        ],
+        "operationState": {
+          "phase": "Failed",
+          "message": "successfully synced",
+          "startedAt": "2026-10-03T08:59:00Z",
+          "finishedAt": "2026-10-03T09:00:00Z",
+          "retryCount": 0
+        },
+        "reconciledAt": "2026-10-03T09:00:00Z",
+        "summary": {
+          "images": [
+            "gcr.io/heptio-images/ks-guestbook-demo:0.2"
+          ],
+          "externalURLs": [
+            "https://guestbook.example.com"
+          ]
+        }
+      }
+    },
+    {
+      "metadata": {
+        "name": "api",
+        "namespace": "argocd",
+        "labels": {
+          "team": "platform"
+        },
+        "annotations": {
+          "kubectl.kubernetes.io/last-applied-configuration": "{\"big\":\"blob\"}",
+          "argocd.argoproj.io/tracking-id": "api"
+        },
+        "creationTimestamp": "2026-09-01T10:00:00Z",
+        "resourceVersion": "100234",
+        "uid": "uid-api",
+        "managedFields": [
+          {
+            "manager": "argocd-controller"
+          }
+        ]
+      },
+      "spec": {
+        "project": "default",
+        "source": {
+          "repoURL": "https://github.com/argoproj/argocd-example-apps.git",
+          "path": "guestbook",
+          "targetRevision": "HEAD"
+        },
+        "destination": {
+          "server": "https://kubernetes.default.svc",
+          "namespace": "default"
+        },
+        "revisionHistoryLimit": 10,
+        "syncPolicy": {
+          "automated": {
+            "prune": true,
+            "selfHeal": true
+          }
+        }
+      },
+      "status": {
+        "sync": {
+          "status": "Synced",
+          "revision": "abc123def4567890feed"
+        },
+        "health": {
+          "status": "Progressing",
+          "message": ""
+        },
+        "conditions": [],
+        "operationState": {
+          "phase": "Running",
+          "message": "successfully synced",
+          "startedAt": "2026-10-03T08:59:00Z",
+          "finishedAt": "2026-10-03T09:00:00Z",
+          "retryCount": 0
+        },
+        "reconciledAt": "2026-10-03T09:00:00Z",
+        "summary": {
+          "images": [
+            "gcr.io/heptio-images/ks-guestbook-demo:0.2"
+          ],
+          "externalURLs": [
+            "https://guestbook.example.com"
+          ]
+        }
+      }
+    }
+  ],
+  "metadata": {
+    "resourceVersion": "100300"
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "items": [
+    {
+      "type": "Normal",
+      "reason": "Synced",
+      "message": "app synced",
+      "count": 1,
+      "firstTimestamp": "2026-10-03T08:00:00Z",
+      "lastTimestamp": "2026-10-03T08:00:00Z",
+      "involvedObject": {
+        "kind": "Application",
+        "name": "guestbook",
+        "namespace": "argocd"
+      }
+    },
+    {
+      "type": "Warning",
+      "reason": "FailedSync",
+      "message": "wwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwwww",
+      "count": 5,
+      "firstTimestamp": "2026-10-03T09:00:00Z",
+      "lastTimestamp": "2026-10-03T09:05:00Z",
+      "involvedObject": {
+        "kind": "Pod",
+        "name": "guestbook-ui-xyz",
+        "namespace": "default"
+      }
+    }
+  ]
+}

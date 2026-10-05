@@ -1,0 +1,33 @@
+{
+  "name": "mcp-argocd",
+  "version": "0.1.0",
+  "description": "Argo CD MCP server for MCP 2026-07-28: app status, sync, rollback, drift, logs, ApplicationSets",
+  "mcpServers": {
+    "mcp-argocd": {
+      "command": "uvx",
+      "args": [
+        "mcp-argocd"
+      ]
+    }
+  },
+  "settings": [
+    {
+      "name": "ARGOCD_TOKEN",
+      "description": "Argo CD bearer token (also accepts ARGOCD_AUTH_TOKEN or ARGOCD_API_TOKEN)",
+      "required": true,
+      "sensitive": true
+    },
+    {
+      "name": "ARGOCD_URL",
+      "description": "Argo CD base URL including any path prefix (e.g. https://argocd.example.com)",
+      "required": true,
+      "sensitive": false
+    },
+    {
+      "name": "ARGOCD_READ_ONLY",
+      "description": "Restrict to read-only operations (true/false)",
+      "required": false,
+      "sensitive": false
+    }
+  ]
+}

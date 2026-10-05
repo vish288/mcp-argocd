@@ -1,0 +1,43 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.vish288/mcp-argocd",
+  "description": "Argo CD MCP server for MCP 2026-07-28: app status, sync, rollback, drift, logs, ApplicationSets",
+  "repository": {
+    "url": "https://github.com/vish288/mcp-argocd",
+    "source": "github"
+  },
+  "version": "0.1.0",
+  "packages": [
+    {
+      "registryType": "pypi",
+      "identifier": "mcp-argocd",
+      "version": "0.1.0",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "ARGOCD_TOKEN",
+          "description": "Argo CD bearer token (also accepts ARGOCD_AUTH_TOKEN or ARGOCD_API_TOKEN)",
+          "isRequired": true,
+          "format": "string",
+          "isSecret": true
+        },
+        {
+          "name": "ARGOCD_URL",
+          "description": "Argo CD base URL including any path prefix (e.g. https://argocd.example.com)",
+          "isRequired": true,
+          "format": "string",
+          "isSecret": false
+        },
+        {
+          "name": "ARGOCD_READ_ONLY",
+          "description": "Restrict to read-only operations (true/false)",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": false
+        }
+      ]
+    }
+  ]
+}
