@@ -114,7 +114,8 @@ p, role:mcp-ro, repositories, get, *, allow
 ## Protocol support
 
 Supports the MCP 2026-07-28 specification (MCP 2.0) and stays compatible with 2025-11-25 clients.
-Built on FastMCP 4.x. Verified over `stdio` and `streamable-http`. The `sse` transport is
+Built on FastMCP 4.x. A regression test lists all 37 tools with an in-memory MCP client pinned to
+2026-07-28. The `sse` transport is
 deprecated by the 2026-07-28 specification; it still works and prints a warning. The server uses
 no roots, sampling, logging, elicitation, or resource subscriptions.
 
@@ -259,13 +260,17 @@ uvx mcp-argocd --read-only --insecure
 
 ## FAQ
 
-**Does mcp-argocd support MCP 2.0?** Yes. It supports the MCP 2026-07-28 specification, often called MCP 2.0, and stays compatible with 2025-11-25 clients.
+**Does mcp-argocd support MCP 2026-07-28 (MCP 2.0)?** Yes. It supports the MCP 2026-07-28 specification, often called MCP 2.0, and stays compatible with 2025-11-25 clients.
+
+**How is it different from argoproj-labs/mcp-for-argocd?** argoproj-labs/mcp-for-argocd is the official TypeScript server with 15 tools. mcp-argocd adds 37 tools with slim payloads by default, plus diff, rollback, terminate, wait-for-operation, ApplicationSet dry-run, and RBAC error hints.
 
 **Which Argo CD versions work?** Argo CD 3.3 and newer. Most tools also work on 2.x; only `run_resource_action` uses a 3.x endpoint.
 
 **Does it need kubectl or cluster credentials?** No. It talks to the Argo CD API over HTTPS with a bearer token. It never touches the cluster directly.
 
 **Is it safe for read-only use?** Yes. Set `ARGOCD_READ_ONLY=true`. The server blocks all nine write tools before any API call.
+
+**Which token does it need?** It needs a bearer token in `ARGOCD_TOKEN`. Generate one from a local account with the `apiKey` capability, or use a project-role token. It also reads `ARGOCD_AUTH_TOKEN` and `ARGOCD_API_TOKEN`.
 
 **Why do I get a 403 for an app that exists?** Without `project`, Argo CD returns 403 for an app that does not exist. Pass `project` to get a real 404.
 
@@ -281,9 +286,9 @@ uvx mcp-argocd --read-only --insecure
 
 ## Related MCP Servers
 
-- [mcp-gitlab](https://github.com/vish288/mcp-gitlab) — 83 tools, 7 resources, 6 prompts for GitLab.
-- [mcp-atlassian-extended](https://github.com/vish288/mcp-atlassian-extended) — 23 tools, 15 resources, 5 prompts for Jira and Confluence.
-- [mcp-coda](https://github.com/vish288/mcp-coda) — 54 tools, 12 resources, 5 prompts for Coda.
+- [mcp-gitlab](https://github.com/vish288/mcp-gitlab) — GitLab integration (83 tools, 7 resources, 6 prompts)
+- [mcp-atlassian-extended](https://github.com/vish288/mcp-atlassian-extended) — Jira + Confluence integration (22 tools, 15 resources, 5 prompts)
+- [mcp-coda](https://github.com/vish288/mcp-coda) — Coda integration (53 tools, 12 resources, 5 prompts)
 
 ## Development
 
