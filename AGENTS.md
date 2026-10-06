@@ -7,7 +7,8 @@ clusters, projects, and repositories. Needs an API token; no cluster access.
 ## Protocol Support
 
 Supports the MCP 2026-07-28 specification (MCP 2.0) and stays compatible with 2025-11-25 clients.
-Built on FastMCP 4.x and the MCP Python SDK 2.x. Verified over `stdio` and `streamable-http`.
+Built on FastMCP 4.x and the MCP Python SDK 2.x. A regression test lists all 37 tools with an
+in-memory MCP client pinned to 2026-07-28.
 
 Transports: `stdio` (default), `streamable-http` (recommended for remote), and `sse`. The
 2026-07-28 specification deprecates `sse`, so the server prints a warning when you use it. The
