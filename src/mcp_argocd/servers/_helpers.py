@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import functools
+import re
 from pathlib import Path
 from typing import Any
 
@@ -79,18 +80,67 @@ def _page(items: list[Any], limit: int, offset: int) -> tuple[list[Any], int, bo
 # ════════════════════════════════════════════════════════════════════
 
 
+# A user-supplied value that lands in a URL *path* segment can escape its
+# endpoint: httpx collapses ``..`` and ``?``/``#`` change the query, so an app
+# name like ``argocd/../clusters/<url>`` would reach ``/clusters/<url>``.
+# Names that Kubernetes requires to be DNS-1123 (apps, namespaces, projects,
+# ApplicationSets) are validated here; a rejected value never reaches the API.
+_DNS1123_RE = re.compile(r"^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$")
+# The can-i subresource is not a k8s name (defaults to ``*/*``), so it keeps
+# ``/`` and ``*`` but is checked segment-by-segment to block path traversal.
+_SUBRESOURCE_SEG_RE = re.compile(r"^[A-Za-z0-9*._-]+$")
+
+
+def _validate_name(value: str, kind: str = "name") -> str:
+    """Reject anything that is not a DNS-1123 name, raising ``ValueError``.
+
+    Blocks ``/``, ``..``, empty segments, and any character that could escape a
+    URL path segment. Returns *value* unchanged when valid.
+    """
+    if not _DNS1123_RE.fullmatch(value):
+        msg = (
+            f"Invalid {kind} {value!r}: must be a DNS-1123 name (lowercase letters, "
+            "digits, '-' or '.'; no '/', no '..', no empty value)"
+        )
+        raise ValueError(msg)
+    return value
+
+
+def _validate_subresource(value: str) -> str:
+    """Validate a can-i subresource (``*/*``, ``proj/app``) without breaking it.
+
+    Each ``/``-separated segment must be non-empty, not ``..``, and contain only
+    ``[A-Za-z0-9*._-]`` — enough to block path traversal and query injection
+    while leaving the wildcard default intact. Raises ``ValueError`` otherwise.
+    """
+    for seg in value.split("/"):
+        if not seg or seg == ".." or not _SUBRESOURCE_SEG_RE.fullmatch(seg):
+            msg = (
+                f"Invalid subresource {value!r}: each segment must be non-empty, not "
+                "'..', and contain only letters, digits, '*', '.', '_', or '-'"
+            )
+            raise ValueError(msg)
+    return value
+
+
 def _split_app_name(name: str, app_namespace: str | None = None) -> tuple[str, str | None]:
-    """Split ``namespace/name`` into (name, app_namespace).
+    """Split ``namespace/name`` into (name, app_namespace), validating both.
 
     An explicit *app_namespace* wins; otherwise a ``namespace/name`` value is
-    split and the leading segment becomes the ``appNamespace``.
+    split and the leading segment becomes the ``appNamespace``. The resulting
+    application name (and namespace) must be a DNS-1123 name — the one guard that
+    covers every tool resolving an app name into a URL path.
     """
     if app_namespace:
-        return name, app_namespace
-    if "/" in name:
+        bare, ns = name, app_namespace
+    elif "/" in name:
         ns, _, bare = name.partition("/")
-        return bare, ns
-    return name, None
+    else:
+        bare, ns = name, None
+    _validate_name(bare, "application name")
+    if ns is not None:
+        _validate_name(ns, "namespace")
+    return bare, ns
 
 
 def _parse_resource_selector(selector: str) -> dict[str, str | None]:

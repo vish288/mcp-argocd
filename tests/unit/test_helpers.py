@@ -13,6 +13,7 @@ from mcp_argocd.servers._helpers import (
     _split_app_name,
     _terminal,
     _truncate,
+    _validate_subresource,
 )
 
 
@@ -74,11 +75,51 @@ class TestSplitAppName:
     def test_namespace_slash_name(self):
         assert _split_app_name("team-a/guestbook") == ("guestbook", "team-a")
 
-    def test_explicit_namespace_wins(self):
-        assert _split_app_name("team-a/guestbook", "override") == ("team-a/guestbook", "override")
-
     def test_explicit_namespace_on_plain(self):
         assert _split_app_name("guestbook", "team-a") == ("guestbook", "team-a")
+
+    # AR-R03: a name that would escape its URL path segment is rejected, even
+    # when an explicit app_namespace is given (the leading segment is not split).
+    @pytest.mark.parametrize(
+        "name",
+        [
+            "argocd/../clusters/x",
+            "../settings",
+            "a/b/c",
+            "",
+            "UPPER",
+            "has space",
+            "name?x=1",
+        ],
+    )
+    def test_rejects_path_escaping_name(self, name):
+        with pytest.raises(ValueError, match="Invalid"):
+            _split_app_name(name)
+
+    def test_rejects_escaping_name_with_explicit_namespace(self):
+        with pytest.raises(ValueError, match="Invalid"):
+            _split_app_name("team-a/guestbook", "override")
+
+    def test_rejects_escaping_namespace(self):
+        # valid bare name, invalid namespace segment
+        with pytest.raises(ValueError, match="Invalid"):
+            _split_app_name("Bad-NS./guestbook")
+
+    def test_accepts_apps_in_any_namespace(self):
+        assert _split_app_name("team-a/guestbook") == ("guestbook", "team-a")
+
+
+class TestValidateSubresource:
+    @pytest.mark.parametrize("value", ["*/*", "proj/app", "default", "*", "a.b/c-d_e"])
+    def test_accepts(self, value):
+        assert _validate_subresource(value) == value
+
+    @pytest.mark.parametrize(
+        "value", ["../applications/x", "a//b", "/leading", "proj/..", "has space", "a?b", ""]
+    )
+    def test_rejects(self, value):
+        with pytest.raises(ValueError, match="Invalid subresource"):
+            _validate_subresource(value)
 
 
 class TestParseResourceSelector:

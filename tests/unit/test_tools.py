@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 
 import pytest
+from fastmcp.exceptions import ToolError
 from httpx import Response
 
 from mcp_argocd.servers import argocd as srv
@@ -167,7 +168,7 @@ async def test_get_resource_strips_managed_fields(tool_client):
             "annotations": {srv.LAST_APPLIED: "{}", "keep": "yes"},
         },
     }
-    router.get(f"{V1}/applications/guestbook/resource").mock(
+    route = router.get(f"{V1}/applications/guestbook/resource").mock(
         return_value=Response(200, json={"manifest": json.dumps(manifest)})
     )
     out = await call(
@@ -179,6 +180,11 @@ async def test_get_resource_strips_managed_fields(tool_client):
     assert "managedFields" not in meta
     assert srv.LAST_APPLIED not in meta["annotations"]
     assert meta["annotations"]["keep"] == "yes"
+    # AR-R01: the swagger names this query param `resourceName`, not `name`
+    params = dict(route.calls.last.request.url.params)
+    assert params["resourceName"] == "cm"
+    assert "name" not in params
+    assert params["kind"] == "ConfigMap"
 
 
 async def test_manifests_parse_and_filter(tool_client):
@@ -343,15 +349,68 @@ async def test_sync_body_assembly(tool_client):
     ]
 
 
-async def test_sync_with_wait_polls(tool_client, monkeypatch):
+def _fast_clock(monkeypatch):
+    clock = {"t": 0.0}
+    monkeypatch.setattr(srv.time, "monotonic", lambda: clock["t"])
+
+    async def fake_sleep(s):
+        clock["t"] += s
+
+    monkeypatch.setattr(srv.asyncio, "sleep", fake_sleep)
+
+
+# AR-R04: POST /sync returns the new request in top-level `operation` while
+# status.operationState still describes the previous, finished run. The old code
+# reported that stale state (and wait=True returned at once); the fix must poll
+# until the *new* operation lands.
+_STALE = {
+    "operation": {"sync": {"revision": "newrev"}},
+    "status": {
+        "operationState": {
+            "phase": "Succeeded",
+            "startedAt": "2000-01-01T00:00:00Z",
+            "operation": {"sync": {"revision": "oldrev"}},
+        },
+        "health": {"status": "Healthy"},
+        "sync": {"status": "Synced", "revision": "oldrev"},
+    },
+}
+_PENDING = _STALE  # first poll: new op still queued (top-level operation present)
+_NEW_DONE = {
+    "status": {
+        "operationState": {
+            "phase": "Succeeded",
+            "startedAt": "2030-01-01T00:00:00Z",
+            "operation": {"sync": {"revision": "newrev"}},
+        },
+        "health": {"status": "Healthy"},
+        "sync": {"status": "Synced", "revision": "newrev"},
+    }
+}
+
+
+async def test_sync_no_wait_reports_requested_not_stale(tool_client):
     client, router = tool_client
-    monkeypatch.setattr(srv.time, "monotonic", lambda: 0.0)
-    router.post(f"{V1}/applications/guestbook/sync").mock(return_value=Response(200, json={}))
-    router.get(f"{V1}/applications/guestbook").mock(
-        return_value=Response(200, json=_app_phase("Succeeded"))
+    router.post(f"{V1}/applications/guestbook/sync").mock(return_value=Response(200, json=_STALE))
+    out = await call(client, "argocd_sync_application", {"name": "guestbook"})
+    assert out["phase"] == "Requested"
+    assert out["requested"] == {"sync": {"revision": "newrev"}}
+
+
+async def test_sync_with_wait_polls_past_stale(tool_client, monkeypatch):
+    _fast_clock(monkeypatch)
+    client, router = tool_client
+    router.post(f"{V1}/applications/guestbook/sync").mock(return_value=Response(200, json=_STALE))
+    route = router.get(f"{V1}/applications/guestbook").mock(
+        side_effect=[
+            Response(200, json=_PENDING),  # new op still queued -> keep polling
+            Response(200, json=_NEW_DONE),  # new op finished -> report this one
+        ]
     )
     out = await call(client, "argocd_sync_application", {"name": "guestbook", "wait": True})
     assert out["phase"] == "Succeeded" and out["timed_out"] is False
+    assert out["sync"]["revision"] == "newrev"  # the new op, not the stale "oldrev"
+    assert route.call_count == 2  # did not return the stale terminal state at once
 
 
 async def test_rollback_refused_when_automated(tool_client):
@@ -374,6 +433,7 @@ async def test_rollback_proceeds_without_automated(tool_client):
     )
     out = await call(client, "argocd_rollback_application", {"name": "guestbook", "history_id": 2})
     assert json.loads(route.calls.last.request.content) == {"name": "guestbook", "id": 2}
+    assert out["phase"] == "Requested"  # AR-R04: the new request, not the stale op
     assert out["rolled_back_to"] == {"id": 2, "revision": "0ldrev0ldrev0ldrev00"}
 
 
@@ -708,7 +768,7 @@ async def test_sync_windows(tool_client):
 
 async def test_list_resource_actions(tool_client):
     client, router = tool_client
-    router.get(f"{V1}/applications/guestbook/resource/actions").mock(
+    route = router.get(f"{V1}/applications/guestbook/resource/actions").mock(
         return_value=Response(
             200, json={"actions": [{"name": "restart", "disabled": False, "params": []}]}
         )
@@ -719,11 +779,15 @@ async def test_list_resource_actions(tool_client):
         {"name": "guestbook", "kind": "Deployment", "resource_name": "web"},
     )
     assert out["actions"][0]["name"] == "restart"
+    # AR-R01: target goes in `resourceName`, not `name`
+    params = dict(route.calls.last.request.url.params)
+    assert params["resourceName"] == "web"
+    assert "name" not in params
 
 
 async def test_run_resource_action_and_delete_resource(tool_client):
     client, router = tool_client
-    router.post(f"{V1}/applications/guestbook/resource/actions/v2").mock(
+    run_route = router.post(f"{V1}/applications/guestbook/resource/actions/v2").mock(
         return_value=Response(200, json={})
     )
     out = await call(
@@ -738,13 +802,109 @@ async def test_run_resource_action_and_delete_resource(tool_client):
         },
     )
     assert out["status"] == "ran"
-    router.delete(f"{V1}/applications/guestbook/resource").mock(return_value=Response(200, json={}))
+    # AR-R02: everything goes in the JSON body (applicationResourceActionRunRequestV2),
+    # with no query string — the route binds the body, so query fields are ignored.
+    req = run_route.calls.last.request
+    assert req.url.query == b""
+    assert json.loads(req.content) == {
+        "name": "guestbook",
+        "resourceName": "web",
+        "kind": "Deployment",
+        "version": "v1",
+        "group": "",
+        "action": "restart",
+        "resourceActionParameters": [{"name": "k", "value": "v"}],
+    }
+    del_route = router.delete(f"{V1}/applications/guestbook/resource").mock(
+        return_value=Response(200, json={})
+    )
     out = await call(
         client,
         "argocd_delete_resource",
         {"name": "guestbook", "kind": "Pod", "resource_name": "p", "force": True},
     )
     assert out["status"] == "deleted"
+    # AR-R01: delete targets `resourceName`, not `name`
+    del_params = dict(del_route.calls.last.request.url.params)
+    assert del_params["resourceName"] == "p"
+    assert "name" not in del_params
+
+
+# ── AR-R03: path-segment injection is blocked before any request ───
+
+
+@pytest.mark.parametrize(
+    ("tool", "args"),
+    [
+        ("argocd_delete_application", {"name": "argocd/../clusters/https%3A%2F%2Fprod"}),
+        ("argocd_patch_application", {"name": "argocd/../projects/default", "patch": "{}"}),
+        ("argocd_get_application", {"name": "../settings"}),
+        ("argocd_get_project", {"name": "../../applications/guestbook"}),
+        ("argocd_get_applicationset", {"name": "../../clusters/x"}),
+        (
+            "argocd_can_i",
+            {"resource": "applications", "action": "get", "subresource": "../../clusters/x"},
+        ),
+    ],
+)
+async def test_path_injection_blocked(tool_client, tool, args):
+    client, router = tool_client
+    with pytest.raises(ToolError):
+        await client.call_tool(tool, args)
+    assert len(router.calls) == 0  # nothing ever reached the API
+
+
+async def test_revision_is_url_encoded(tool_client):
+    client, router = tool_client
+    route = router.get(url__regex=rf"{V1}/applications/guestbook/revisions/.+/metadata").mock(
+        return_value=Response(200, json={"author": "a"})
+    )
+    await call(
+        client,
+        "argocd_get_revision_metadata",
+        {"name": "guestbook", "revision": "release/1.2"},
+    )
+    # the '/' in the revision is encoded so it stays one path segment
+    assert "revisions/release%2F1.2/metadata" in str(route.calls.last.request.url)
+
+
+# ── AR-R05: pod-log client-side caps ───────────────────────────────
+
+
+async def test_pod_logs_rejects_zero_tail(tool_client):
+    client, _router = tool_client
+    with pytest.raises(ToolError):
+        await client.call_tool("argocd_get_pod_logs", {"name": "guestbook", "tail_lines": 0})
+
+
+async def test_pod_logs_caps_total_lines(tool_client):
+    client, router = tool_client
+    lines = [
+        json.dumps({"result": {"content": f"line {i}", "podName": "p", "last": False}})
+        for i in range(1500)
+    ]
+    lines.append(json.dumps({"result": {"last": True}}))
+    router.get(f"{V1}/applications/guestbook/logs").mock(
+        return_value=Response(200, text="\n".join(lines))
+    )
+    out = await call(client, "argocd_get_pod_logs", {"name": "guestbook", "tail_lines": 1000})
+    assert out["shown_lines"] == srv.MAX_LOG_LINES == 1000
+    assert out["truncated"] is True
+
+
+async def test_pod_logs_caps_line_length(tool_client):
+    client, router = tool_client
+    big = "x" * 5000
+    stream = "\n".join(
+        [
+            json.dumps({"result": {"content": big, "podName": "p", "last": False}}),
+            json.dumps({"result": {"last": True}}),
+        ]
+    )
+    router.get(f"{V1}/applications/guestbook/logs").mock(return_value=Response(200, text=stream))
+    out = await call(client, "argocd_get_pod_logs", {"name": "guestbook"})
+    assert len(out["lines"][0]["content"]) == srv.MAX_LOG_LINE_CHARS == 2000
+    assert out["truncated"] is True
 
 
 async def test_delete_application(tool_client):

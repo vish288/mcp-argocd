@@ -10,6 +10,7 @@ import re
 import time
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 from importlib.metadata import version
 from typing import Annotated, Any, Literal
 from urllib.parse import quote
@@ -33,9 +34,17 @@ from ._helpers import (
     _split_app_name,
     _terminal,
     _truncate,
+    _validate_name,
+    _validate_subresource,
 )
 
 LAST_APPLIED = "kubectl.kubernetes.io/last-applied-configuration"
+
+# Client-side log caps (AGENTS.md "Pod logs are capped at 1000 lines"): the tail
+# applies per pod across up to 10 pods, so without a total cap one call can
+# return megabytes into the context.
+MAX_LOG_LINES = 1000
+MAX_LOG_LINE_CHARS = 2000
 
 SyncStatus = Literal["Synced", "OutOfSync", "Unknown"]
 HealthStatus = Literal["Healthy", "Progressing", "Degraded", "Suspended", "Missing", "Unknown"]
@@ -516,14 +525,44 @@ def _slim_window(w: dict) -> dict:
     )
 
 
+def _parse_rfc3339(value: str | None) -> datetime | None:
+    """Parse an RFC-3339 timestamp (``...Z``) to an aware datetime, or None."""
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+
+def _requested(resp: dict | None) -> dict:
+    """Non-wait sync/rollback result: the newly *requested* operation.
+
+    The POST response carries the new request in top-level ``operation`` while
+    ``status.operationState`` still describes the previous, finished run — so the
+    old operation must never be reported here.
+    """
+    return {"phase": "Requested", "requested": (resp or {}).get("operation")}
+
+
 async def _poll_operation(
     client: ArgoCDClient,
     bare: str,
     params: dict,
     timeout_seconds: int,
     poll_interval: int = 3,
+    *,
+    started_after: datetime | None = None,
+    want_revision: str | None = None,
 ) -> dict:
-    """Poll an application until its operation is terminal, gone, or timed out."""
+    """Poll an application until its operation is terminal, gone, or timed out.
+
+    When *started_after* is given (the sync/rollback wait path), a terminal
+    ``operationState`` is only accepted once it belongs to the *new* request:
+    the top-level ``operation`` must be gone and the run must have started at or
+    after *started_after*, or its revision must match *want_revision*. Without
+    *started_after* (plain wait_for_operation), any terminal phase ends the poll.
+    """
     start = time.monotonic()
     while True:
         data = await client.get(f"/applications/{bare}", params)
@@ -531,7 +570,17 @@ async def _poll_operation(
         op = _slim_operation(status, include_resources=True)
         waited = time.monotonic() - start
         phase = op.get("phase")
-        done = phase is None or _terminal(phase)
+        terminal = phase is None or _terminal(phase)
+        if started_after is None:
+            recognized = True
+        else:
+            op_state = status.get("operationState") or {}
+            started = _parse_rfc3339(op_state.get("startedAt"))
+            started_ok = started is not None and started >= started_after
+            state_rev = ((op_state.get("operation") or {}).get("sync") or {}).get("revision")
+            rev_ok = want_revision is not None and state_rev == want_revision
+            recognized = data.get("operation") is None and (started_ok or rev_ok)
+        done = recognized and terminal
         if done or waited >= timeout_seconds:
             op["waited_seconds"] = round(waited, 1)
             op["timed_out"] = not done
@@ -766,7 +815,7 @@ async def argocd_get_resource(
     params = _params(
         appNamespace=ns,
         project=project,
-        name=resource_name,
+        resourceName=resource_name,
         namespace=namespace,
         group=group,
         version=version,
@@ -872,7 +921,7 @@ async def argocd_get_pod_logs(
     namespace: Annotated[str | None, Field(description="Pod namespace")] = None,
     container: Annotated[str | None, Field(description="Container name")] = None,
     tail_lines: Annotated[
-        int, Field(description="Lines from the tail (0-1000)", ge=0, le=1000)
+        int, Field(description="Lines from the tail (1-1000)", ge=1, le=1000)
     ] = 200,
     since_seconds: Annotated[
         int | None, Field(description="Only logs newer than N seconds", ge=0)
@@ -905,25 +954,31 @@ async def argocd_get_pod_logs(
     )
     lines: list[dict] = []
     pods: set[str] = set()
+    truncated = False
     async for obj in _get_client(ctx).stream_lines(f"/applications/{bare}/logs", params):
         r = obj.get("result", {})
         if r.get("last"):
             break
+        content, cut = _truncate(r.get("content"), MAX_LOG_LINE_CHARS)
+        truncated = truncated or cut
         lines.append(
             {
                 "pod": r.get("podName"),
                 "timestamp": r.get("timeStampStr"),
-                "content": r.get("content"),
+                "content": content,
             }
         )
         if r.get("podName"):
             pods.add(r["podName"])
+        if len(lines) >= MAX_LOG_LINES:
+            truncated = True
+            break
     return _ok(
         {
             "lines": lines,
             "shown_lines": len(lines),
             "pods": sorted(pods),
-            "truncated": len(lines) >= tail_lines > 0,
+            "truncated": truncated,
         }
     )
 
@@ -976,7 +1031,9 @@ async def argocd_get_revision_metadata(
     params = _params(
         appNamespace=ns, project=project, sourceIndex=source_index, versionId=version_id
     )
-    data = await _get_client(ctx).get(f"/applications/{bare}/revisions/{revision}/metadata", params)
+    data = await _get_client(ctx).get(
+        f"/applications/{bare}/revisions/{quote(revision, safe='')}/metadata", params
+    )
     return _ok(
         {
             "author": data.get("author"),
@@ -1080,7 +1137,7 @@ async def argocd_list_resource_actions(
     params = _params(
         appNamespace=ns,
         project=project,
-        name=resource_name,
+        resourceName=resource_name,
         namespace=namespace,
         group=group,
         version=version,
@@ -1162,14 +1219,21 @@ async def argocd_sync_application(
         body["retryStrategy"] = {"limit": retry_limit}
 
     client = _get_client(ctx)
+    started_after = datetime.now(timezone.utc)
     resp = await client.post(f"/applications/{bare}/sync", body)
     if wait:
+        want_rev = (((resp or {}).get("operation") or {}).get("sync") or {}).get("revision")
         return _ok(
             await _poll_operation(
-                client, bare, _params(appNamespace=ns, project=project), timeout_seconds
+                client,
+                bare,
+                _params(appNamespace=ns, project=project),
+                timeout_seconds,
+                started_after=started_after,
+                want_revision=want_rev,
             )
         )
-    return _ok(_slim_operation((resp or {}).get("status", {})))
+    return _ok(_requested(resp))
 
 
 @mcp.tool(tags={"argocd", "applications", "write"}, annotations=DESTRUCTIVE)
@@ -1216,12 +1280,20 @@ async def argocd_rollback_application(
         body["prune"] = True
     if dry_run:
         body["dryRun"] = True
+    started_after = datetime.now(timezone.utc)
     resp = await client.post(f"/applications/{bare}/rollback", body)
-    op = (
-        await _poll_operation(client, bare, params, timeout_seconds)
-        if wait
-        else _slim_operation((resp or {}).get("status", {}))
-    )
+    if wait:
+        want_rev = (((resp or {}).get("operation") or {}).get("sync") or {}).get("revision")
+        op = await _poll_operation(
+            client,
+            bare,
+            params,
+            timeout_seconds,
+            started_after=started_after,
+            want_revision=want_rev,
+        )
+    else:
+        op = _requested(resp)
     op["rolled_back_to"] = {"id": history_id, "revision": revision}
     return _ok(op)
 
@@ -1398,18 +1470,25 @@ async def argocd_run_resource_action(
 ) -> str:
     """Run a custom resource action (restart a Deployment, pause a Rollout). destructive."""
     bare, ns = _resolve(ctx, name, app_namespace)
-    params = _params(
-        appNamespace=ns,
-        project=project,
-        namespace=namespace,
-        resourceName=resource_name,
-        version=version,
-        group=group,
-        kind=kind,
-        action=action,
-    )
-    body = [{"name": k, "value": v} for k, v in (parameters or {}).items()] or None
-    await _get_client(ctx).post(f"/applications/{bare}/resource/actions/v2", body, params=params)
+    # POST .../resource/actions/v2 takes only a path param plus a single
+    # applicationResourceActionRunRequestV2 body — no query string.
+    body: dict[str, Any] = {
+        "name": bare,
+        "resourceName": resource_name,
+        "kind": kind,
+        "version": version,
+        "group": group,
+        "action": action,
+    }
+    if ns:
+        body["appNamespace"] = ns
+    if project:
+        body["project"] = project
+    if namespace:
+        body["namespace"] = namespace
+    if parameters:
+        body["resourceActionParameters"] = [{"name": k, "value": v} for k, v in parameters.items()]
+    await _get_client(ctx).post(f"/applications/{bare}/resource/actions/v2", body)
     return _ok(
         {
             "status": "ran",
@@ -1444,7 +1523,7 @@ async def argocd_delete_resource(
     params = _params(
         appNamespace=ns,
         project=project,
-        name=resource_name,
+        resourceName=resource_name,
         namespace=namespace,
         version=version,
         group=group,
@@ -1709,6 +1788,7 @@ async def argocd_get_applicationset(
     full: Full = False,
 ) -> str:
     """Get one ApplicationSet: generators, strategy, and the status of the apps it generates."""
+    _validate_name(name, "ApplicationSet name")
     params = _params(appsetNamespace=appset_namespace)
     data = await _get_client(ctx).get(f"/applicationsets/{name}", params)
     return _ok(data if full else _slim_appset_detail(data, include_applications, include_template))
@@ -1778,6 +1858,7 @@ async def argocd_get_project(
 
     Role token values (jwtTokens) are never returned; only a token count.
     """
+    _validate_name(name, "project name")
     data = await _get_client(ctx).get(f"/projects/{name}")
     return _ok_scrubbed(data if full else _slim_project_detail(data, include_roles))
 
@@ -2003,6 +2084,7 @@ async def argocd_can_i(
 
     Returns {allowed: bool, ...}; the API answers the string yes/no.
     """
+    _validate_subresource(subresource)
     data = await _get_client(ctx).get(f"/account/can-i/{resource}/{action}/{subresource}")
     value = data.get("value") if isinstance(data, dict) else data
     return _ok(

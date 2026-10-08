@@ -15,7 +15,8 @@ import pytest
 from httpx import Response
 
 APP = "/applications/guestbook"
-RES_QUERY = {"name": "web", "group": "", "version": "v1", "kind": "Deployment"}
+# swagger names the target `resourceName`; `name` is the path param (the app)
+RES_QUERY = {"resourceName": "web", "group": "", "version": "v1", "kind": "Deployment"}
 REPO = "https://github.com/argoproj/argocd-example-apps.git"
 REPO_ENC = quote(REPO, safe="")
 
@@ -140,21 +141,22 @@ ROWS = [
         {"name": "guestbook", "action": "restart", "kind": "Deployment", "resource_name": "web"},
         "POST",
         f"{APP}/resource/actions/v2",
+        {},  # applicationResourceActionRunRequestV2: single body, no query
         {
+            "name": "guestbook",
             "resourceName": "web",
+            "kind": "Deployment",
             "version": "v1",
             "group": "",
-            "kind": "Deployment",
             "action": "restart",
         },
-        None,
     ),
     (
         "argocd_delete_resource",
         {"name": "guestbook", "kind": "Deployment", "resource_name": "web"},
         "DELETE",
         f"{APP}/resource",
-        {"name": "web", "version": "v1", "group": "", "kind": "Deployment"},
+        {"resourceName": "web", "version": "v1", "group": "", "kind": "Deployment"},
         None,
     ),
     # 2.3 ApplicationSets (3)
