@@ -5,7 +5,7 @@
 MCP server that wraps the Argo CD REST API. Works with Argo CD 3.3+ on any install (OSS, Akuity, OpenShift GitOps). Needs an API token; no cluster access. Built with FastMCP, httpx, and Pydantic.
 
 - **Install**: `uvx mcp-argocd`
-- **Version**: 0.1.0
+- **Version**: 0.2.0
 - **Python**: >=3.10
 - **License**: MIT
 - **Protocol**: MCP 2026-07-28 (MCP 2.0); compatible with 2025-11-25 clients; built on FastMCP 4.x
