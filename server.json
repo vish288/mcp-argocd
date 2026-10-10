@@ -6,12 +6,12 @@
     "url": "https://github.com/vish288/mcp-argocd",
     "source": "github"
   },
-  "version": "0.1.0",
+  "version": "0.2.0",
   "packages": [
     {
       "registryType": "pypi",
       "identifier": "mcp-argocd",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "transport": {
         "type": "stdio"
       },

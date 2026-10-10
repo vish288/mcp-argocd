@@ -1,6 +1,6 @@
 [project]
 name = "mcp-argocd"
-version = "0.1.0"
+version = "0.2.0"
 description = "Argo CD MCP server for the MCP 2026-07-28 specification (MCP 2.0): application status, sync, rollback, drift, logs, ApplicationSets, and clusters for assistants"
 readme = "README.md"
 license = {text = "MIT"}
