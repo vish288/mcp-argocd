@@ -52,8 +52,10 @@ uvx mcp-argocd --transport streamable-http --port 9000
 # SSE transport — deprecated by MCP 2026-07-28; still works, prints a warning
 uvx mcp-argocd --transport sse --host 127.0.0.1 --port 8000
 
-# CLI overrides for config
-uvx mcp-argocd --argocd-url https://argocd.example.com --argocd-token <token> --read-only --insecure
+# CLI overrides for config (token comes from the environment)
+# --argocd-token still works but is deprecated and hidden from --help: it exposes
+# the token to `ps` and shell history. Use ARGOCD_TOKEN.
+ARGOCD_TOKEN=<token> uvx mcp-argocd --argocd-url https://argocd.example.com --read-only --insecure
 ```
 
 ### MCP Client Configuration Example

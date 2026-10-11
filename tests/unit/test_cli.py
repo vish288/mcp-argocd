@@ -50,3 +50,37 @@ def test_read_only_sets_env():
         result = runner.invoke(main, ["--read-only"])
         assert result.exit_code == 0
         assert os.environ["ARGOCD_READ_ONLY"] == "true"
+
+
+def test_token_flag_hidden_from_help():
+    result = CliRunner().invoke(main, ["--help"])
+    assert result.exit_code == 0
+    assert "--argocd-token" not in result.output
+    assert "--argocd-url" in result.output
+
+
+def test_token_flag_still_works_and_warns():
+    runner = CliRunner()
+    env = {"ARGOCD_URL": "https://argocd.example.com"}
+    with (
+        patch("mcp_argocd.asyncio.run") as mock_run,
+        patch.dict("os.environ", env, clear=True),
+    ):
+        result = runner.invoke(main, ["--argocd-token", "argv-tok"])
+        assert result.exit_code == 0
+        mock_run.assert_called_once()
+        assert os.environ["ARGOCD_TOKEN"] == "argv-tok"
+        assert "--argocd-token is deprecated" in result.stderr
+        assert "ARGOCD_TOKEN" in result.stderr
+        assert "deprecated" not in result.stdout
+
+
+def test_env_token_does_not_warn():
+    runner = CliRunner()
+    with (
+        patch("mcp_argocd.asyncio.run"),
+        patch.dict("os.environ", _ENV, clear=True),
+    ):
+        result = runner.invoke(main, [])
+        assert result.exit_code == 0
+        assert "deprecated" not in result.stderr

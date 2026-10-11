@@ -129,8 +129,10 @@ returns a user message (workflow template) plus an assistant acknowledgment.
 | `ARGOCD_SSL_VERIFY` | no | `true` | `false`/`0`/`no` skips verification; `ARGOCD_INSECURE=true` is an alias |
 | `ARGOCD_APP_NAMESPACE` | no | — | Default `appNamespace` for apps-in-any-namespace installs |
 
-CLI flags override env: `--argocd-url`, `--argocd-token`, `--read-only`, `--insecure`, plus
+CLI flags override env: `--argocd-url`, `--read-only`, `--insecure`, plus
 `--transport {stdio,sse,streamable-http}` with `--host` and `--port` for non-stdio transports.
+`--argocd-token` is deprecated and hidden from `--help`; it still works and warns on stderr (it
+exposes the token to `ps` and shell history). Set `ARGOCD_TOKEN` instead.
 
 ## Release Workflow
 
@@ -141,14 +143,25 @@ gh workflow run release.yml -f version=0.1.0
 gh workflow run release.yml -f bump=minor -f dry_run=true  # preview changelog, no push
 ```
 
-1. `release.yml` (workflow_dispatch) — bumps the version in `pyproject.toml`, `llms-full.txt`,
-   `server.json`; runs `scripts/derive_artifacts.py`; regenerates `uv.lock`; prepends a CHANGELOG
-   entry; creates the release commit and tag via the GitHub API with `RELEASE_PAT`.
-2. `publish.yml` (on a `v*` tag) — builds the wheel, publishes to PyPI (trusted publishing,
-   environment `pypi`), creates the GitHub Release, then publishes to the MCP Registry.
+1. `release.yml` (workflow_dispatch) — runs the `tests.yml` and `lint.yml` gates on the released
+   commit first (`needs: [test, lint]` via `workflow_call`), then bumps the version in
+   `pyproject.toml`, `llms-full.txt`, `server.json`; runs `scripts/derive_artifacts.py`;
+   regenerates `uv.lock`; prepends a CHANGELOG entry. The release commit is created via the GitHub
+   API with `GITHUB_TOKEN` and **no** `author`/`committer`, so GitHub signs it as
+   `github-actions[bot]` (Verified); the job then fails unless `verification.verified` is true.
+   `main` and the tag ref are moved with `RELEASE_PAT` (a fast-forward that fails if `main` moved
+   mid-run; the PAT is what bypasses the ruleset and triggers `publish.yml`).
+2. `publish.yml` (on a `v*` tag) — builds the wheel, validates `server.json` with a pinned,
+   sha256-verified `mcp-publisher`, publishes to PyPI (trusted publishing, environment `pypi`),
+   creates the GitHub Release, then publishes to the MCP Registry.
 
 Rules: never edit the `pyproject.toml` version directly; never create tags manually; use
 Conventional Commits (`feat:`, `fix:`, `docs:`, …).
+
+Release commits on `main` are Verified, but PR commits merged by GitHub's rebase-only policy show
+as unsigned: GitHub rewrites each rebased commit with a new committer and cannot sign it as a
+system user. That is by design — PR review plus the required `lint`/`test` checks are the
+integrity control; only the release commit is signed.
 
 ## Documentation Freshness (mandatory)
 

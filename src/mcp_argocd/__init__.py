@@ -18,7 +18,7 @@ from dotenv import load_dotenv
 @click.option("--port", default=8000, help="Port for HTTP transports")
 @click.option("--host", default="127.0.0.1", help="Host for HTTP transports")
 @click.option("--argocd-url", envvar="ARGOCD_URL", help="Argo CD base URL")
-@click.option("--argocd-token", envvar="ARGOCD_TOKEN", help="Argo CD bearer token")
+@click.option("--argocd-token", hidden=True, help="Deprecated: set ARGOCD_TOKEN instead")
 @click.option("--read-only", is_flag=True, help="Disable write operations")
 @click.option("--insecure", is_flag=True, help="Skip TLS verification (ARGOCD_SSL_VERIFY=false)")
 def main(
@@ -36,6 +36,11 @@ def main(
     if argocd_url:
         os.environ["ARGOCD_URL"] = argocd_url
     if argocd_token:
+        click.echo(
+            "Warning: --argocd-token is deprecated. It puts the token in the process argument "
+            "list, where `ps` and shell history can read it. Set ARGOCD_TOKEN instead.",
+            err=True,
+        )
         os.environ["ARGOCD_TOKEN"] = argocd_token
     if read_only:
         os.environ["ARGOCD_READ_ONLY"] = "true"
