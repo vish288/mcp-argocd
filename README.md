@@ -124,9 +124,10 @@ no roots, sampling, logging, elicitation, or resource subscriptions.
 Expected failures — a missing app (404), a denied permission (403), a write blocked by read-only
 mode — return a tool result with `isError: true` rather than a success envelope. The body is a JSON
 object `{"error", "status_code"?, "body"?, "hint"?}`, where `hint` names a corrective action when
-one applies. Its pretty-printed text and the result's `structuredContent` are the same object, so a
-client may read either; unexpected bugs are also `isError: true` but carry `TypeName: message` text
-with no `structuredContent` and a logged traceback.
+one applies. The body is the result's pretty-printed text content; the result carries no
+`structuredContent`, because a strict MCP client (the TypeScript SDK) validates `structuredContent`
+against the tool's `outputSchema` even when `isError` is true and would reject the error otherwise.
+Unexpected bugs are also `isError: true` but carry `TypeName: message` text and a logged traceback.
 
 ## Tools (37)
 
