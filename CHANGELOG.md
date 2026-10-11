@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.3.1] - 2026-10-11
+
+### Bug Fixes
+- fix: drop structuredContent from error results so strict MCP clients accept them (4964db3)
+
+
 ## [0.3.0] - 2026-10-11
 
 ### Features
