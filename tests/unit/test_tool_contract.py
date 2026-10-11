@@ -254,6 +254,12 @@ def _parse(result) -> dict:
     return json.loads(result.content[0].text)
 
 
+def _err_body(result) -> dict:
+    """Assert an expected-failure result is an ``isError`` result and return its body."""
+    assert result.is_error is True
+    return json.loads(result.content[0].text)
+
+
 @pytest.mark.parametrize("row", ROWS, ids=[r[0] for r in ROWS])
 async def test_request_shape(tool_client, row):
     name, args, method, path, query, body = row
@@ -281,7 +287,7 @@ async def test_forced_failure(tool_client, row):
         return_value=Response(404, json={"message": "not found", "code": 5})
     )
 
-    parsed = _parse(await client.call_tool(name, args))
+    parsed = _err_body(await client.call_tool(name, args, raise_on_error=False))
 
     assert NOT_FOUND_KEYS <= parsed.keys()
     assert parsed["status_code"] == 404
@@ -300,7 +306,11 @@ async def test_forced_permission_denied(tool_client):
         )
     )
 
-    parsed = _parse(await client.call_tool("argocd_get_application", {"name": "guestbook"}))
+    parsed = _err_body(
+        await client.call_tool(
+            "argocd_get_application", {"name": "guestbook"}, raise_on_error=False
+        )
+    )
 
     assert parsed["status_code"] == 403
     hint = parsed["hint"]
@@ -312,7 +322,7 @@ async def test_forced_permission_denied(tool_client):
 async def test_write_blocked_in_read_only(readonly_client, row):
     name, args, *_ = row
     client, _router = readonly_client
-    parsed = _parse(await client.call_tool(name, args))
+    parsed = _err_body(await client.call_tool(name, args, raise_on_error=False))
     assert "read-only" in parsed["hint"]
 
 
@@ -330,9 +340,27 @@ async def test_bug_is_a_tool_error_not_a_result(tool_client, caplog):
 
     assert result.is_error is True
     assert "RuntimeError: boom" in result.content[0].text
+    assert result.structured_content is None
 
 
-async def test_api_error_is_still_a_result(tool_client):
+async def test_api_error_is_an_error_result_with_hint(tool_client, caplog):
+    client, router = tool_client
+    router.get(_full_path(APP)).mock(return_value=Response(404, json={"message": "gone"}))
+
+    with caplog.at_level(logging.ERROR, logger="mcp_argocd.servers.argocd"):
+        result = await client.call_tool(
+            "argocd_get_application", {"name": "guestbook"}, raise_on_error=False
+        )
+
+    assert result.is_error is True
+    body = json.loads(result.content[0].text)
+    assert "hint" in body
+    assert result.structured_content == body
+    # expected failures must not log at ERROR (that path is for bugs only)
+    assert caplog.records == []
+
+
+async def test_404_is_error_with_matching_text_and_structured(tool_client):
     client, router = tool_client
     router.get(_full_path(APP)).mock(return_value=Response(404, json={"message": "gone"}))
 
@@ -340,5 +368,9 @@ async def test_api_error_is_still_a_result(tool_client):
         "argocd_get_application", {"name": "guestbook"}, raise_on_error=False
     )
 
-    assert result.is_error is False
-    assert "hint" in json.loads(result.content[0].text)
+    assert result.is_error is True
+    body = json.loads(result.content[0].text)
+    assert body["status_code"] == 404
+    # structuredContent is the same object, and the text is its byte-exact pretty dump
+    assert result.structured_content == body
+    assert result.content[0].text == json.dumps(body, indent=2, ensure_ascii=False)
