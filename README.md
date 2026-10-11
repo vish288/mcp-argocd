@@ -119,6 +119,15 @@ Built on FastMCP 4.x. A regression test lists all 37 tools with an in-memory MCP
 deprecated by the 2026-07-28 specification; it still works and prints a warning. The server uses
 no roots, sampling, logging, elicitation, or resource subscriptions.
 
+### Error results
+
+Expected failures — a missing app (404), a denied permission (403), a write blocked by read-only
+mode — return a tool result with `isError: true` rather than a success envelope. The body is a JSON
+object `{"error", "status_code"?, "body"?, "hint"?}`, where `hint` names a corrective action when
+one applies. Its pretty-printed text and the result's `structuredContent` are the same object, so a
+client may read either; unexpected bugs are also `isError: true` but carry `TypeName: message` text
+with no `structuredContent` and a logged traceback.
+
 ## Tools (37)
 
 | Category | Count |

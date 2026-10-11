@@ -27,6 +27,13 @@ async def call(client, name, args):
     return parse(await client.call_tool(name, args))
 
 
+async def call_err(client, name, args):
+    """Expected-failure call: assert ``isError`` and return the JSON body."""
+    result = await client.call_tool(name, args, raise_on_error=False)
+    assert result.is_error is True
+    return parse(result)
+
+
 # ── list_applications ──────────────────────────────────────────────
 
 
@@ -418,7 +425,9 @@ async def test_rollback_refused_when_automated(tool_client):
     router.get(f"{V1}/applications/guestbook").mock(
         return_value=Response(200, json=fx("application.json"))  # has automated sync
     )
-    out = await call(client, "argocd_rollback_application", {"name": "guestbook", "history_id": 2})
+    out = await call_err(
+        client, "argocd_rollback_application", {"name": "guestbook", "history_id": 2}
+    )
     assert out["status_code"] == 400
     assert "auto-sync" in out["hint"].lower()
 
@@ -530,7 +539,7 @@ async def test_generate_applicationset(tool_client):
 
 async def test_generate_rejects_non_json(tool_client):
     client, _router = tool_client
-    out = await call(client, "argocd_generate_applicationset", {"applicationset": "not json"})
+    out = await call_err(client, "argocd_generate_applicationset", {"applicationset": "not json"})
     assert out["status_code"] == 400
 
 

@@ -64,7 +64,7 @@ Every tool MUST have `annotations={}` with at minimum `readOnlyHint`.
 1-2 sentences. Front-load what it does AND what it returns.
 
 ### Error handling
-- Every tool wraps in `@tool_result`; expected `ArgoCDError` failures become the `_err` JSON envelope, anything else surfaces as a `ToolError` with a logged traceback.
+- Every tool wraps in `@tool_result`; expected `ArgoCDError` failures become an `isError: true` result carrying the `_err` JSON body (text and `structuredContent` are the same object), anything else surfaces as a `ToolError` with a logged traceback.
 - Error text MUST be actionable: what went wrong plus a suggested fix.
 - Never expose the token, stack traces, or request headers.
 
@@ -180,8 +180,6 @@ never hand-edit them.
 ## Known Limitations
 
 - 37 tools in one server file, past the 5-15 guideline. If you refactor it, split by category.
-- Errors come back as successful tool results carrying `{"error": ...}` (soft-error pattern);
-  callers inspect the JSON rather than relying on protocol-level errors.
 - Argo CD list endpoints have no server-side paging, so a very large install pays one full fetch
   per list call; the server pages the result client-side.
 - Pod logs are capped at 1000 lines.
