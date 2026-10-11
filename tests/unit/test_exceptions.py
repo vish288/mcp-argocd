@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import json
-
 import pytest
 
 from mcp_argocd.exceptions import (
@@ -37,7 +35,7 @@ HINTED = API | {"hint"}
     ids=["base", "api-400", "api-500", "auth-401", "auth-403", "404", "conflict", "ro", "timeout"],
 )
 def test_err_envelope_key_set(exc, keys):
-    assert json.loads(_err(exc)).keys() == keys
+    assert _err(exc).keys() == keys
 
 
 def test_api_error_attrs():
@@ -55,7 +53,7 @@ def test_permission_denied_hint_names_triple():
         7,
         body='{"error":"permission denied: applications, sync, default/app","code":7}',
     )
-    hint = json.loads(_err(e))["hint"]
+    hint = _err(e)["hint"]
     assert "argocd_can_i" in hint
     assert "applications" in hint
     assert "sync" in hint
@@ -68,7 +66,7 @@ def test_write_disabled_message():
 
 def test_rollback_automated_hint():
     e = ArgoCDApiError(400, "Cannot rollback application with automated sync enabled")
-    hint = json.loads(_err(e))["hint"]
+    hint = _err(e)["hint"]
     assert "auto-sync" in hint.lower()
     assert "argocd_patch_application" in hint
 
@@ -89,4 +87,4 @@ def test_rollback_automated_hint():
     ids=["op-in-progress", "sync-window", "429", "html", "403-generic", "401"],
 )
 def test_api_hints(exc, needle):
-    assert needle in json.loads(_err(exc))["hint"]
+    assert needle in _err(exc)["hint"]

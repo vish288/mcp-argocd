@@ -17,6 +17,8 @@ from urllib.parse import quote
 
 from fastmcp import Context, FastMCP
 from fastmcp.exceptions import ToolError
+from fastmcp.tools import ToolResult
+from mcp.types import TextContent
 from pydantic import Field
 
 from ..client import ArgoCDClient
@@ -207,7 +209,7 @@ def _api_hint(error: ArgoCDApiError) -> str | None:
     return None
 
 
-def _err(error: Exception) -> str:
+def _err(error: Exception) -> dict[str, Any]:
     detail: dict[str, Any] = {"error": str(error)}
     if isinstance(error, ArgoCDWriteDisabledError):
         detail["hint"] = "Server is in read-only mode. Set ARGOCD_READ_ONLY=false to enable writes."
@@ -222,29 +224,45 @@ def _err(error: Exception) -> str:
         hint = _api_hint(error)
         if hint:
             detail["hint"] = hint
-    return _dump(detail)
+    return detail
 
 
-_Tool = Callable[..., Awaitable[str]]
+def _error_result(detail: dict[str, Any]) -> ToolResult:
+    """Expected failure as an ``isError: true`` result that keeps the JSON body.
+
+    Text content is byte-identical to the old ``_err`` output; ``structuredContent``
+    carries the same dict un-escaped; ``isError`` reaches the client so the LLM can
+    self-correct rather than parsing a success envelope.
+    """
+    text = json.dumps(detail, indent=2, ensure_ascii=False)
+    return ToolResult(
+        content=[TextContent(type="text", text=text)],
+        structured_content=detail,
+        is_error=True,
+    )
+
+
+_Tool = Callable[..., Awaitable[str | ToolResult]]
 
 
 def tool_result(fn: _Tool | None = None, *, write: bool = False) -> Any:
-    """Apply under ``@mcp.tool``. Expected failures (``ArgoCDError``) become the
-    JSON envelope; anything else is a bug and is raised as a ``ToolError`` so it
-    surfaces as ``isError: true`` with a logged traceback.
+    """Apply under ``@mcp.tool``. Expected failures (``ArgoCDError``) become an
+    ``isError: true`` result carrying the JSON envelope (text + structuredContent);
+    anything else is a bug and is raised as a ``ToolError`` so it surfaces as
+    ``isError: true`` with a logged traceback.
 
     ``write=True`` runs the read-only guard first.
     """
 
     def wrap(f: _Tool) -> _Tool:
         @functools.wraps(f)
-        async def inner(ctx: Context, *args: Any, **kwargs: Any) -> str:
+        async def inner(ctx: Context, *args: Any, **kwargs: Any) -> str | ToolResult:
             try:
                 if write:
                     _check_write(ctx)
                 return await f(ctx, *args, **kwargs)
             except ArgoCDError as e:
-                return _err(e)
+                return _error_result(_err(e))
             except Exception as e:
                 _log.exception("%s failed", f.__name__)
                 msg = f"{type(e).__name__}: {e}"
