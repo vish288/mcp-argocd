@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.3.0] - 2026-10-11
+
+### Features
+- feat!: report expected tool failures with isError (f87cf2e)
+
+### Chores
+- chore: gate releases on CI, sign release commits, pin mcp-publisher, deprecate token flags, cap deps (d6ce14e)
+
+
 ## [0.2.0] - 2026-10-10
 
 ### Bug Fixes
