@@ -228,16 +228,17 @@ def _err(error: Exception) -> dict[str, Any]:
 
 
 def _error_result(detail: dict[str, Any]) -> ToolResult:
-    """Expected failure as an ``isError: true`` result that keeps the JSON body.
+    """Expected failure as an ``isError: true`` result carrying the JSON body as text.
 
-    Text content is byte-identical to the old ``_err`` output; ``structuredContent``
-    carries the same dict un-escaped; ``isError`` reaches the client so the LLM can
-    self-correct rather than parsing a success envelope.
+    No ``structuredContent``: the TS MCP SDK validates ``structuredContent`` against the
+    tool's ``outputSchema`` even when ``isError`` is true, and the error dict lacks the
+    schema's required ``result`` key, so a strict client would reject the whole result
+    with ``InvalidParams`` and lose the error text. The body is the text content;
+    ``isError`` reaches the client so the LLM can self-correct.
     """
     text = json.dumps(detail, indent=2, ensure_ascii=False)
     return ToolResult(
         content=[TextContent(type="text", text=text)],
-        structured_content=detail,
         is_error=True,
     )
 
@@ -247,9 +248,9 @@ _Tool = Callable[..., Awaitable[str | ToolResult]]
 
 def tool_result(fn: _Tool | None = None, *, write: bool = False) -> Any:
     """Apply under ``@mcp.tool``. Expected failures (``ArgoCDError``) become an
-    ``isError: true`` result carrying the JSON envelope (text + structuredContent);
-    anything else is a bug and is raised as a ``ToolError`` so it surfaces as
-    ``isError: true`` with a logged traceback.
+    ``isError: true`` result carrying the JSON envelope as text content (no
+    structuredContent, so strict clients accept it); anything else is a bug and is
+    raised as a ``ToolError`` so it surfaces as ``isError: true`` with a logged traceback.
 
     ``write=True`` runs the read-only guard first.
     """

@@ -293,6 +293,30 @@ async def test_forced_failure(tool_client, row):
     assert parsed["status_code"] == 404
 
 
+@pytest.mark.parametrize("row", ROWS, ids=[r[0] for r in ROWS])
+async def test_error_result_accepted_by_strict_client(tool_client, row):
+    """A strict MCP client (TS SDK) validates ``structuredContent`` against the tool's
+    ``outputSchema`` even when ``isError`` is true. An error result must therefore either
+    omit ``structuredContent`` or still satisfy that schema, or the client raises
+    ``InvalidParams`` and the error text is lost.
+    """
+    import jsonschema
+
+    name, args, method, path, _query, _body = row
+    client, router = tool_client
+    router.get(_full_path(APP)).mock(return_value=Response(200, json={}))
+    router.request(method, _full_path(path)).mock(
+        return_value=Response(404, json={"message": "not found", "code": 5})
+    )
+    output_schema = {t.name: t.output_schema for t in await client.list_tools()}[name]
+
+    result = await client.call_tool(name, args, raise_on_error=False)
+
+    assert result.is_error is True
+    if result.structured_content is not None and output_schema is not None:
+        jsonschema.validate(result.structured_content, output_schema)
+
+
 async def test_forced_permission_denied(tool_client):
     client, router = tool_client
     router.get(_full_path(APP)).mock(
@@ -355,7 +379,7 @@ async def test_api_error_is_an_error_result_with_hint(tool_client, caplog):
     assert result.is_error is True
     body = json.loads(result.content[0].text)
     assert "hint" in body
-    assert result.structured_content == body
+    assert result.structured_content is None
     # expected failures must not log at ERROR (that path is for bugs only)
     assert caplog.records == []
 
@@ -371,6 +395,7 @@ async def test_404_is_error_with_matching_text_and_structured(tool_client):
     assert result.is_error is True
     body = json.loads(result.content[0].text)
     assert body["status_code"] == 404
-    # structuredContent is the same object, and the text is its byte-exact pretty dump
-    assert result.structured_content == body
+    # no structuredContent (strict clients validate it against outputSchema even on errors);
+    # the error body is the text content, a byte-exact pretty dump
+    assert result.structured_content is None
     assert result.content[0].text == json.dumps(body, indent=2, ensure_ascii=False)

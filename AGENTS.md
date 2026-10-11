@@ -64,7 +64,7 @@ Every tool MUST have `annotations={}` with at minimum `readOnlyHint`.
 1-2 sentences. Front-load what it does AND what it returns.
 
 ### Error handling
-- Every tool wraps in `@tool_result`; expected `ArgoCDError` failures become an `isError: true` result carrying the `_err` JSON body (text and `structuredContent` are the same object), anything else surfaces as a `ToolError` with a logged traceback.
+- Every tool wraps in `@tool_result`; expected `ArgoCDError` failures become an `isError: true` result carrying the `_err` JSON body as text content only — no `structuredContent`, because strict MCP clients (the TypeScript SDK) validate `structuredContent` against the tool's `outputSchema` even when `isError` is true. Anything else surfaces as a `ToolError` with a logged traceback.
 - Error text MUST be actionable: what went wrong plus a suggested fix.
 - Never expose the token, stack traces, or request headers.
 
