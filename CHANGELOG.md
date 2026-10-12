@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.4.0] - 2026-10-12
+
+### Features
+- feat!: send tool results as structuredContent objects and drop the placeholder outputSchema (f05e53d)
+
+### Bug Fixes
+- fix: correct orphan delete, transport errors, URL redaction, rollback guard (e93bf65)
+- fix: surface Argo CD connection errors and harden the test suite (93bd70b)
+
+
 ## [0.3.1] - 2026-10-11
 
 ### Bug Fixes
