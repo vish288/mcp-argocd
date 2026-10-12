@@ -13,6 +13,7 @@ from .exceptions import (
     ArgoCDApiError,
     ArgoCDAuthError,
     ArgoCDConflictError,
+    ArgoCDConnectionError,
     ArgoCDNotFoundError,
     ArgoCDTimeoutError,
 )
@@ -91,19 +92,21 @@ class ArgoCDClient:
         raise ArgoCDApiError(sc, message, grpc_code, body)
 
     @staticmethod
-    def _parse_body(resp: httpx.Response, *, raw: bool = False) -> Any:
+    def _parse_body(resp: httpx.Response) -> Any:
         if resp.status_code == 204 or not resp.content:
             return None
         if _looks_like_html(resp):
             raise ArgoCDApiError(resp.status_code, _HTML_HINT, None, resp.text[:500])
-        if raw:
-            return resp.text
         try:
             return resp.json()
         except json.JSONDecodeError as e:
             raise ArgoCDApiError(
                 resp.status_code, f"JSON parse error: {e}", None, resp.text[:500]
             ) from e
+
+    def _unreachable(self, e: httpx.ConnectError) -> ArgoCDConnectionError:
+        msg = f"Cannot reach Argo CD at {self.config.url}: {e}"
+        return ArgoCDConnectionError(msg)
 
     async def _request(
         self,
@@ -112,7 +115,6 @@ class ArgoCDClient:
         *,
         json_data: Any = None,
         params: dict[str, Any] | None = None,
-        raw: bool = False,
     ) -> Any:
         kwargs: dict[str, Any] = {"params": params}
         if json_data is not None:
@@ -122,13 +124,13 @@ class ArgoCDClient:
         except httpx.TimeoutException as e:
             msg = f"Request timed out: {e}"
             raise ArgoCDTimeoutError(msg) from e
+        except httpx.ConnectError as e:
+            raise self._unreachable(e) from e
         self._raise_for_status(resp)
-        return self._parse_body(resp, raw=raw)
+        return self._parse_body(resp)
 
-    async def get(
-        self, path: str, params: dict[str, Any] | None = None, *, raw: bool = False
-    ) -> Any:
-        return await self._request("GET", path, params=params, raw=raw)
+    async def get(self, path: str, params: dict[str, Any] | None = None) -> Any:
+        return await self._request("GET", path, params=params)
 
     async def post(
         self, path: str, json_data: Any = None, params: dict[str, Any] | None = None
@@ -150,6 +152,8 @@ class ArgoCDClient:
         except httpx.TimeoutException as e:
             msg = f"Request timed out: {e}"
             raise ArgoCDTimeoutError(msg) from e
+        except httpx.ConnectError as e:
+            raise self._unreachable(e) from e
         self._raise_for_status(resp)
         return self._parse_body(resp)
 
@@ -174,3 +178,5 @@ class ArgoCDClient:
         except httpx.TimeoutException as e:
             msg = f"Log stream timed out: {e}"
             raise ArgoCDTimeoutError(msg) from e
+        except httpx.ConnectError as e:
+            raise self._unreachable(e) from e

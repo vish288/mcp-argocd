@@ -12,7 +12,9 @@ import logging
 from urllib.parse import quote
 
 import pytest
-from httpx import Response
+from httpx import ConnectError, Response
+
+from mcp_argocd.servers.argocd import mcp
 
 APP = "/applications/guestbook"
 # swagger names the target `resourceName`; `name` is the path param (the app)
@@ -353,6 +355,33 @@ async def test_write_blocked_in_read_only(readonly_client, row):
 async def test_every_tool_has_a_row(tool_client):
     client, _router = tool_client
     assert {r[0] for r in ROWS} == {t.name for t in await client.list_tools()}
+
+
+async def test_write_names_match_annotations():
+    """``WRITE_NAMES`` is hand-maintained; keep it honest against the registry so a new
+    write tool annotated ``readOnlyHint: False`` but missing ``write=True`` cannot slip
+    past the read-only gate unnoticed.
+    """
+    derived = {t.name for t in await mcp._list_tools() if not t.annotations.read_only_hint}
+    assert WRITE_NAMES == derived
+
+
+async def test_network_error_is_an_error_result_with_hint(tool_client):
+    """A server-unreachable error (httpx.ConnectError) is an expected failure: an
+    ``isError`` result with an actionable hint, not a logged bug/traceback.
+    """
+    client, router = tool_client
+    router.get(_full_path(APP)).mock(side_effect=ConnectError("connection refused"))
+
+    result = await client.call_tool(
+        "argocd_get_application", {"name": "guestbook"}, raise_on_error=False
+    )
+
+    assert result.is_error is True
+    body = json.loads(result.content[0].text)
+    assert "reach" in body["hint"].lower()
+    assert "status_code" not in body  # a connection failure, not an API status
+    assert result.structured_content is None
 
 
 async def test_bug_is_a_tool_error_not_a_result(tool_client, caplog):

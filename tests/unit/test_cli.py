@@ -12,10 +12,21 @@ from mcp_argocd import main
 _ENV = {"ARGOCD_URL": "https://argocd.example.com", "ARGOCD_TOKEN": "test-token"}
 
 
+def _close_coro(coro):
+    """Stand in for ``asyncio.run``: close the ``mcp.run_async`` coroutine so it is
+    never left un-awaited (otherwise GC emits ``RuntimeWarning: coroutine ... never awaited``).
+    """
+    coro.close()
+
+
+def _patch_run():
+    return patch("mcp_argocd.asyncio.run", side_effect=_close_coro)
+
+
 def test_sse_deprecation_warning():
     runner = CliRunner()
     with (
-        patch("mcp_argocd.asyncio.run") as mock_run,
+        _patch_run() as mock_run,
         patch.dict("os.environ", _ENV),
     ):
         result = runner.invoke(main, ["--transport", "sse"])
@@ -31,7 +42,7 @@ def test_sse_deprecation_warning():
 def test_insecure_sets_ssl_verify_false():
     runner = CliRunner()
     with (
-        patch("mcp_argocd.asyncio.run"),
+        _patch_run(),
         patch.dict("os.environ", _ENV, clear=False),
     ):
         os.environ.pop("ARGOCD_SSL_VERIFY", None)
@@ -43,7 +54,7 @@ def test_insecure_sets_ssl_verify_false():
 def test_read_only_sets_env():
     runner = CliRunner()
     with (
-        patch("mcp_argocd.asyncio.run"),
+        _patch_run(),
         patch.dict("os.environ", _ENV, clear=False),
     ):
         os.environ.pop("ARGOCD_READ_ONLY", None)
@@ -63,7 +74,7 @@ def test_token_flag_still_works_and_warns():
     runner = CliRunner()
     env = {"ARGOCD_URL": "https://argocd.example.com"}
     with (
-        patch("mcp_argocd.asyncio.run") as mock_run,
+        _patch_run() as mock_run,
         patch.dict("os.environ", env, clear=True),
     ):
         result = runner.invoke(main, ["--argocd-token", "argv-tok"])
@@ -78,7 +89,7 @@ def test_token_flag_still_works_and_warns():
 def test_env_token_does_not_warn():
     runner = CliRunner()
     with (
-        patch("mcp_argocd.asyncio.run"),
+        _patch_run(),
         patch.dict("os.environ", _ENV, clear=True),
     ):
         result = runner.invoke(main, [])
