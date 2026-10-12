@@ -270,7 +270,13 @@ async def test_request_shape(tool_client, row):
     # rollback and terminate pre-read the app; satisfy that GET.
     router.get(_full_path(APP)).mock(return_value=Response(200, json={}))
 
-    parsed = _parse(await client.call_tool(name, args))
+    result = await client.call_tool(name, args)
+
+    # success results carry the JSON object as structuredContent next to the pretty text;
+    # the equality proves the pre-X2 ``{"result": "<json string>"}`` wrapper is gone.
+    assert result.is_error is False
+    assert result.structured_content == json.loads(result.content[0].text)
+    parsed = _parse(result)
 
     assert "error" not in parsed, parsed
     req = route.calls.last.request
@@ -278,6 +284,50 @@ async def test_request_shape(tool_client, row):
     assert req.url.raw_path.split(b"?")[0].decode() == _full_path(path)
     assert dict(req.url.params) == query
     assert (json.loads(req.content) if req.content else None) == body
+
+
+async def test_no_tool_advertises_a_wrapped_schema(tool_client):
+    """Every tool returns a real object (or advertises no schema), never the fastmcp
+    ``{"result": "<json string>"}`` wrapper that made error results a hazard: a strict
+    client validates ``structuredContent`` against ``outputSchema`` even on ``isError``,
+    and an error envelope can never satisfy ``{"result": str}``. When a schema is present
+    (opt-in per-tool ``output_schema=``), the success payload must validate against it.
+    """
+    import jsonschema
+
+    client, _router = tool_client
+    by_name = {t.name: t.output_schema for t in await client.list_tools()}
+    for name, schema in by_name.items():
+        assert schema is None or (
+            "x-fastmcp-wrap-result" not in schema and schema["type"] == "object"
+        ), f"{name} advertises a wrapped schema: {schema}"
+
+    # When a tool does advertise a schema, its success payload must conform. All argocd
+    # tools return ``ToolResult`` (no schema) today, so the loop below is forward-compatible
+    # with any tool that later opts into ``output_schema=``.
+    for name, args, method, path, _query, _body in ROWS:
+        if by_name[name] is None:
+            continue
+        client, router = tool_client
+        router.request(method, _full_path(path)).mock(return_value=Response(200, json={}))
+        router.get(_full_path(APP)).mock(return_value=Response(200, json={}))
+        result = await client.call_tool(name, args)
+        if result.structured_content is not None:
+            jsonschema.validate(result.structured_content, by_name[name])
+
+
+async def test_golden_text_is_pretty_utf8_json(tool_client):
+    """Pin the success text format: pretty (indent=2), UTF-8 (``ensure_ascii=False``), and
+    byte-identical to ``structuredContent`` serialized the same way.
+    """
+    client, router = tool_client
+    payload = {"metadata": {"name": "héllo-ünïcode"}, "spec": {}, "status": {}}
+    router.get(_full_path(APP)).mock(return_value=Response(200, json=payload))
+
+    result = await client.call_tool("argocd_get_application", {"name": "guestbook", "full": True})
+
+    assert result.content[0].text == json.dumps(payload, indent=2, ensure_ascii=False)
+    assert result.structured_content == payload
 
 
 @pytest.mark.parametrize("row", ROWS, ids=[r[0] for r in ROWS])

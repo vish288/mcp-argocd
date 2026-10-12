@@ -114,23 +114,35 @@ def _check_write(ctx: Context) -> None:
 # ════════════════════════════════════════════════════════════════════
 
 
-def _dump(data: Any) -> str:
-    return json.dumps(data, indent=2, ensure_ascii=False)
+def _result(data: dict[str, Any], *, is_error: bool = False) -> ToolResult:
+    """Pretty JSON as text (byte-identical to the pre-X2 output) plus the same object as
+    ``structuredContent``. Error results carry text only: strict MCP clients (TS SDK 1.x)
+    validate ``structuredContent`` against ``outputSchema`` even when ``isError`` is true,
+    and the error envelope lacks the schema's keys, so a strict client would reject the
+    whole result and lose the error text. A ``-> ToolResult`` return advertises no schema,
+    so success payloads pass upstream fields through untyped; a typed schema is opt-in per
+    tool via ``@mcp.tool(output_schema=...)``."""
+    text = json.dumps(data, indent=2, ensure_ascii=False)
+    return ToolResult(
+        content=[TextContent(type="text", text=text)],
+        structured_content=None if is_error else data,
+        is_error=is_error,
+    )
 
 
-def _ok(data: Any) -> str:
-    return _dump(data)
+def _ok(data: dict[str, Any]) -> ToolResult:
+    return _result(data)
 
 
-def _ok_scrubbed(data: Any) -> str:
+def _ok_scrubbed(data: dict[str, Any]) -> ToolResult:
     """Success envelope with every credential field removed (repos, clusters, projects)."""
-    return _dump(_scrub(data))
+    return _result(_scrub(data))
 
 
-def _paginated(items: list[Any], total: int, has_more: bool, next_offset: int | None) -> str:
+def _paginated(items: list[Any], total: int, has_more: bool, next_offset: int | None) -> ToolResult:
     """Wrap a client-side-paged list. Argo CD list endpoints take no paging
     parameters, so the server fetches once, filters, sorts, and slices."""
-    return _dump(
+    return _result(
         {
             "items": items,
             "count": len(items),
@@ -234,22 +246,12 @@ def _err(error: Exception) -> dict[str, Any]:
 
 
 def _error_result(detail: dict[str, Any]) -> ToolResult:
-    """Expected failure as an ``isError: true`` result carrying the JSON body as text.
-
-    No ``structuredContent``: the TS MCP SDK validates ``structuredContent`` against the
-    tool's ``outputSchema`` even when ``isError`` is true, and the error dict lacks the
-    schema's required ``result`` key, so a strict client would reject the whole result
-    with ``InvalidParams`` and lose the error text. The body is the text content;
-    ``isError`` reaches the client so the LLM can self-correct.
-    """
-    text = json.dumps(detail, indent=2, ensure_ascii=False)
-    return ToolResult(
-        content=[TextContent(type="text", text=text)],
-        is_error=True,
-    )
+    """Expected failure as an ``isError: true`` result carrying the JSON body as text only
+    (see ``_result`` for why strict clients need no ``structuredContent`` on errors)."""
+    return _result(detail, is_error=True)
 
 
-_Tool = Callable[..., Awaitable[str | ToolResult]]
+_Tool = Callable[..., Awaitable[ToolResult]]
 
 
 def tool_result(fn: _Tool | None = None, *, write: bool = False) -> Any:
@@ -263,7 +265,7 @@ def tool_result(fn: _Tool | None = None, *, write: bool = False) -> Any:
 
     def wrap(f: _Tool) -> _Tool:
         @functools.wraps(f)
-        async def inner(ctx: Context, *args: Any, **kwargs: Any) -> str | ToolResult:
+        async def inner(ctx: Context, *args: Any, **kwargs: Any) -> ToolResult:
             try:
                 if write:
                     _check_write(ctx)
@@ -669,7 +671,7 @@ async def argocd_list_applications(
     ] = None,
     limit: Limit = 50,
     offset: Offset = 0,
-) -> str:
+) -> ToolResult:
     """List applications with slim rows (name, project, sync/health, source, destination, policy).
 
     Filters sync_status, health_status, destination, and name_prefix client-side; the Argo CD
@@ -726,7 +728,7 @@ async def argocd_get_application(
         Field(description="Include status.resources filtered by this mode"),
     ] = "none",
     full: Full = False,
-) -> str:
+) -> ToolResult:
     """Get one application: spec, sync/health, conditions, operation, summary, resource counts.
 
     refresh=hard forces reconciliation and re-fetches target manifests from the repo server.
@@ -754,7 +756,7 @@ async def argocd_get_resource_tree(
     include_info: Annotated[bool, Field(description="Include each node's info[] entries")] = False,
     limit: Limit = 200,
     offset: Offset = 0,
-) -> str:
+) -> ToolResult:
     """Get the live resource tree as slim nodes (kind, name, health, images, parent).
 
     Drops networkingInfo, uid, and resourceVersion. Filters by kind and health client-side.
@@ -796,7 +798,7 @@ async def argocd_get_managed_resources(
     max_diff_chars: Annotated[
         int, Field(description="Truncate each diff to this many chars", ge=0)
     ] = 4000,
-) -> str:
+) -> ToolResult:
     """Get managed resources with their live-vs-desired diffs (truncated by default).
 
     include_states adds the parsed target, normalized-live, and predicted-live manifests with
@@ -833,7 +835,7 @@ async def argocd_get_resource(
     app_namespace: AppNamespace = None,
     project: Project = None,
     full: Full = False,
-) -> str:
+) -> ToolResult:
     """Get a single managed resource's live manifest, with managedFields and the last-applied
     annotation removed."""
     bare, ns = _resolve(ctx, name, app_namespace)
@@ -870,7 +872,7 @@ async def argocd_get_manifests(
     resource_name: Annotated[str | None, Field(description="Client-side name filter")] = None,
     limit: Limit = 50,
     offset: Offset = 0,
-) -> str:
+) -> ToolResult:
     """Get the rendered desired manifests for a revision, parsed into objects and paged."""
     bare, ns = _resolve(ctx, name, app_namespace)
     params = _params(appNamespace=ns, project=project, revision=revision)
@@ -913,7 +915,7 @@ async def argocd_get_application_events(
     warnings_only: Annotated[bool, Field(description="Only Warning events")] = False,
     limit: Limit = 50,
     offset: Offset = 0,
-) -> str:
+) -> ToolResult:
     """Get Kubernetes events for an application, newest first, with messages capped at 500 chars."""
     bare, ns = _resolve(ctx, name, app_namespace)
     params = _params(
@@ -958,7 +960,7 @@ async def argocd_get_pod_logs(
     match_case: Annotated[bool, Field(description="Case-sensitive filter")] = False,
     app_namespace: AppNamespace = None,
     project: Project = None,
-) -> str:
+) -> ToolResult:
     """Get container logs (never follows). Returns lines with pod and timestamp, the pods seen, and
     a shown_lines count; stops at the stream's last marker."""
     bare, ns = _resolve(ctx, name, app_namespace)
@@ -1017,7 +1019,7 @@ async def argocd_get_application_history(
     project: Project = None,
     limit: Limit = 20,
     offset: Offset = 0,
-) -> str:
+) -> ToolResult:
     """Get deployment history (newest first) with revision, who deployed it, and the source."""
     bare, ns = _resolve(ctx, name, app_namespace)
     data = await _get_client(ctx).get(
@@ -1050,7 +1052,7 @@ async def argocd_get_revision_metadata(
     version_id: Annotated[int | None, Field(description="History version id")] = None,
     app_namespace: AppNamespace = None,
     project: Project = None,
-) -> str:
+) -> ToolResult:
     """Get commit metadata for a revision: author, date, message, tags, signature info."""
     bare, ns = _resolve(ctx, name, app_namespace)
     params = _params(
@@ -1083,7 +1085,7 @@ async def argocd_get_operation(
     include_resources: Annotated[
         bool, Field(description="Include the requested resource subset")
     ] = True,
-) -> str:
+) -> ToolResult:
     """Get the current or last sync operation: phase, who started it, and per-status result counts.
 
     Returns {"phase": null} when no operation has run.
@@ -1108,7 +1110,7 @@ async def argocd_wait_for_operation(
     poll_interval_seconds: Annotated[
         int, Field(description="Seconds between polls (1-30)", ge=1, le=30)
     ] = 3,
-) -> str:
+) -> ToolResult:
     """Poll an application until its operation reaches a terminal phase, disappears, or times out.
 
     Never errors on timeout; returns timed_out=true with the latest operation, sync, and health.
@@ -1128,7 +1130,7 @@ async def argocd_get_sync_windows(
     name: Name,
     app_namespace: AppNamespace = None,
     project: Project = None,
-) -> str:
+) -> ToolResult:
     """Get sync windows for an application: whether it can sync now, plus active and assigned
     windows."""
     bare, ns = _resolve(ctx, name, app_namespace)
@@ -1156,7 +1158,7 @@ async def argocd_list_resource_actions(
     version: Annotated[str, Field(description="API version")] = "v1",
     app_namespace: AppNamespace = None,
     project: Project = None,
-) -> str:
+) -> ToolResult:
     """List the custom resource actions available on a resource (e.g. restart, pause)."""
     bare, ns = _resolve(ctx, name, app_namespace)
     params = _params(
@@ -1213,7 +1215,7 @@ async def argocd_sync_application(
     timeout_seconds: Annotated[
         int, Field(description="Wait timeout in seconds", ge=10, le=600)
     ] = 120,
-) -> str:
+) -> ToolResult:
     """Sync an application. destructive because prune and force can delete or recreate resources.
 
     Returns the started operation; with wait=True, the final one. revision override needs the
@@ -1275,7 +1277,7 @@ async def argocd_rollback_application(
     timeout_seconds: Annotated[
         int, Field(description="Wait timeout in seconds", ge=10, le=600)
     ] = 120,
-) -> str:
+) -> ToolResult:
     """Roll back to a prior deployment history entry. destructive.
 
     Argo CD refuses a rollback while auto-sync is on, so this pre-reads the app and returns an
@@ -1331,7 +1333,7 @@ async def argocd_terminate_operation(
     name: Name,
     app_namespace: AppNamespace = None,
     project: Project = None,
-) -> str:
+) -> ToolResult:
     """Terminate the running sync operation. Use to unstick a sync hanging in Running."""
     bare, ns = _resolve(ctx, name, app_namespace)
     client = _get_client(ctx)
@@ -1372,7 +1374,7 @@ async def argocd_create_application(
     create_namespace: Annotated[bool, Field(description="Add CreateNamespace=true")] = False,
     upsert: Annotated[bool, Field(description="Update if it already exists")] = False,
     validate: Annotated[bool, Field(description="Validate the manifests")] = True,
-) -> str:
+) -> ToolResult:
     """Create an application from flattened parameters. Use patch for anything this does not cover.
 
     Returns the created application, slim. Idempotent only with upsert=True.
@@ -1438,7 +1440,7 @@ async def argocd_patch_application(
     ] = "merge",
     app_namespace: AppNamespace = None,
     project: Project = None,
-) -> str:
+) -> ToolResult:
     """Patch an application — the one tool for every update.
 
     Examples: change targetRevision with patch='{"spec":{"source":{"targetRevision":"v2"}}}';
@@ -1466,7 +1468,7 @@ async def argocd_delete_application(
     ] = "foreground",
     app_namespace: AppNamespace = None,
     project: Project = None,
-) -> str:
+) -> ToolResult:
     """Delete an application. destructive. cascade=False removes only the Application object."""
     bare, ns = _resolve(ctx, name, app_namespace)
     # Argo CD rejects a propagation policy when cascading is disabled
@@ -1496,7 +1498,7 @@ async def argocd_run_resource_action(
     parameters: Annotated[dict[str, str] | None, Field(description="Action parameters")] = None,
     app_namespace: AppNamespace = None,
     project: Project = None,
-) -> str:
+) -> ToolResult:
     """Run a custom resource action (restart a Deployment, pause a Rollout). destructive."""
     bare, ns = _resolve(ctx, name, app_namespace)
     # POST .../resource/actions/v2 takes only a path param plus a single
@@ -1546,7 +1548,7 @@ async def argocd_delete_resource(
     orphan: Annotated[bool, Field(description="Orphan dependents")] = False,
     app_namespace: AppNamespace = None,
     project: Project = None,
-) -> str:
+) -> ToolResult:
     """Delete a single managed resource so the controller recreates it. destructive."""
     bare, ns = _resolve(ctx, name, app_namespace)
     params = _params(
@@ -1795,7 +1797,7 @@ async def argocd_list_applicationsets(
     appset_namespace: Annotated[str | None, Field(description="ApplicationSet namespace")] = None,
     limit: Limit = 50,
     offset: Offset = 0,
-) -> str:
+) -> ToolResult:
     """List ApplicationSets with slim rows (generators present, strategy, health, conditions)."""
     params = _params(projects=projects, selector=selector, appsetNamespace=appset_namespace)
     data = await _get_client(ctx).get("/applicationsets", params)
@@ -1815,7 +1817,7 @@ async def argocd_get_applicationset(
     ] = True,
     include_template: Annotated[bool, Field(description="Include the full spec.template")] = False,
     full: Full = False,
-) -> str:
+) -> ToolResult:
     """Get one ApplicationSet: generators, strategy, and the status of the apps it generates."""
     _validate_name(name, "ApplicationSet name")
     params = _params(appsetNamespace=appset_namespace)
@@ -1829,7 +1831,7 @@ async def argocd_generate_applicationset(
     ctx: Context,
     applicationset: Annotated[str, Field(description="Full ApplicationSet manifest as JSON")],
     appset_namespace: Annotated[str | None, Field(description="ApplicationSet namespace")] = None,
-) -> str:
+) -> ToolResult:
     """Dry-run the generators: preview the applications an ApplicationSet would produce. Creates
     nothing. The manifest must be JSON."""
     try:
@@ -1857,7 +1859,7 @@ async def argocd_list_projects(
     name: Annotated[str | None, Field(description="Filter to one project name")] = None,
     limit: Limit = 50,
     offset: Offset = 0,
-) -> str:
+) -> ToolResult:
     """List projects with slim rows (repo/destination counts, role names, sync-window count)."""
     data = await _get_client(ctx).get("/projects", _params(name=name))
     items = sorted(data.get("items") or [], key=lambda p: p.get("metadata", {}).get("name", ""))
@@ -1882,7 +1884,7 @@ async def argocd_get_project(
         bool, Field(description="Include role definitions (never jwtTokens)")
     ] = True,
     full: Full = False,
-) -> str:
+) -> ToolResult:
     """Get a project: allowed repos, destinations, resource whitelists/blacklists, and roles.
 
     Role token values (jwtTokens) are never returned; only a token count.
@@ -1905,7 +1907,7 @@ async def argocd_list_clusters(
     server: Annotated[str | None, Field(description="Filter by server URL")] = None,
     limit: Limit = 50,
     offset: Offset = 0,
-) -> str:
+) -> ToolResult:
     """List clusters with slim rows (connection state, server version, app and cache counts).
 
     The cluster credential config is never returned.
@@ -1935,7 +1937,7 @@ async def argocd_get_cluster(
     ctx: Context,
     cluster: Annotated[str, Field(description="Cluster name, or server URL (starts with http)")],
     full: Full = False,
-) -> str:
+) -> ToolResult:
     """Get one cluster by name or server URL. The credential config is always removed, even with
     full=True."""
     value, query = _cluster_path(cluster)
@@ -1948,7 +1950,7 @@ async def argocd_get_cluster(
 async def argocd_invalidate_cluster_cache(
     ctx: Context,
     cluster: Annotated[str, Field(description="Cluster name, or server URL (starts with http)")],
-) -> str:
+) -> ToolResult:
     """Invalidate a cluster's cached resources — the standard fix for phantom OutOfSync or Unknown
     health. Removes nothing real."""
     value, query = _cluster_path(cluster)
@@ -1971,7 +1973,7 @@ async def argocd_list_repositories(
     force_refresh: Annotated[bool, Field(description="Re-check connection state")] = False,
     limit: Limit = 50,
     offset: Offset = 0,
-) -> str:
+) -> ToolResult:
     """List repositories with slim rows and connection state. Credentials are never returned;
     has_credentials reports whether any are configured."""
     params = _params(appProject=app_project, forceRefresh=force_refresh or None)
@@ -2003,7 +2005,7 @@ async def argocd_get_repository_refs(
         int, Field(description="Max branches/tags per list (1-500)", ge=1, le=500)
     ] = 100,
     offset: Offset = 0,
-) -> str:
+) -> ToolResult:
     """Get a repository's branches and tags, each paged separately with its own counts."""
     params = _params(appProject=app_project, forceRefresh=force_refresh or None)
     data = await _get_client(ctx).get(f"/repositories/{quote(repo, safe='')}/refs", params)
@@ -2032,7 +2034,7 @@ async def argocd_list_repository_apps(
     app_project: Annotated[str | None, Field(description="Project scope")] = None,
     limit: Limit = 50,
     offset: Offset = 0,
-) -> str:
+) -> ToolResult:
     """List the application paths (and their config type) discoverable in a repository."""
     params = _params(revision=revision, appProject=app_project)
     data = await _get_client(ctx).get(f"/repositories/{quote(repo, safe='')}/apps", params)
@@ -2048,7 +2050,7 @@ async def argocd_list_repository_apps(
 
 @mcp.tool(tags={"argocd", "server", "read"}, annotations=READ)
 @tool_result
-async def argocd_get_version(ctx: Context) -> str:
+async def argocd_get_version(ctx: Context) -> ToolResult:
     """Get the Argo CD server version and its bundled tool versions. The connectivity probe."""
     data = await _get_client(ctx).get_version()
     return _ok(
@@ -2068,7 +2070,7 @@ async def argocd_get_version(ctx: Context) -> str:
 
 @mcp.tool(tags={"argocd", "server", "read"}, annotations=READ)
 @tool_result
-async def argocd_get_userinfo(ctx: Context) -> str:
+async def argocd_get_userinfo(ctx: Context) -> ToolResult:
     """Get the authenticated identity: username, groups, whether logged in, and the token issuer."""
     data = await _get_client(ctx).get("/session/userinfo")
     return _ok(
@@ -2108,7 +2110,7 @@ async def argocd_can_i(
         Field(description="RBAC action"),
     ],
     subresource: Annotated[str, Field(description="Sub-resource, e.g. */* or proj/app")] = "*/*",
-) -> str:
+) -> ToolResult:
     """Check whether the current account may perform resource/action on a subresource.
 
     Returns {allowed: bool, ...}; the API answers the string yes/no.
@@ -2128,7 +2130,7 @@ async def argocd_can_i(
 
 @mcp.tool(tags={"argocd", "server", "read"}, annotations=READ)
 @tool_result
-async def argocd_get_settings(ctx: Context, full: Full = False) -> str:
+async def argocd_get_settings(ctx: Context, full: Full = False) -> ToolResult:
     """Get server settings: URL, enabled features, tracking method, and plugin names.
 
     Drops OIDC/Dex config and UI banner fields in the slim view.
