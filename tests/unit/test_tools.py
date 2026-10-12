@@ -974,10 +974,12 @@ async def test_delete_application(tool_client):
     out = await call(client, "argocd_delete_application", {"name": "guestbook", "cascade": False})
     assert out == {"status": "deleted", "name": "guestbook", "cascade": False}
     params = dict(route.calls.last.request.url.params)
-    assert params["propagationPolicy"] == "foreground"
     # cascade=False must reach the wire as `cascade=false`; dropping it (cascade or None)
     # lets Argo CD default to cascade=true and delete every managed resource.
     assert params["cascade"] == "false"
+    # Argo CD rejects propagationPolicy when cascade is disabled ("cannot set propagation
+    # policy when cascading is disabled"), so it must be absent for an orphan delete.
+    assert "propagationPolicy" not in params
 
 
 async def test_delete_application_cascade_default_true(tool_client):
@@ -1077,6 +1079,33 @@ async def test_rollback_refused_when_automated_is_empty(tool_client):
     )
     assert out["status_code"] == 400
     assert "auto-sync" in out["hint"].lower()
+
+
+async def test_rollback_refused_when_automated_enabled_true(tool_client):
+    # Argo CD 3.x: automated.enabled defaults to true, so an explicit true is auto-sync on.
+    client, router = tool_client
+    app = fx("application.json")
+    app["spec"]["syncPolicy"] = {"automated": {"enabled": True}}
+    router.get(f"{V1}/applications/guestbook").mock(return_value=Response(200, json=app))
+    out = await call_err(
+        client, "argocd_rollback_application", {"name": "guestbook", "history_id": 2}
+    )
+    assert out["status_code"] == 400
+    assert "auto-sync" in out["hint"].lower()
+
+
+async def test_rollback_proceeds_when_automated_enabled_false(tool_client):
+    # Argo CD 3.x: automated.enabled=false means auto-sync is off, so the rollback proceeds.
+    client, router = tool_client
+    app = fx("application.json")
+    app["spec"]["syncPolicy"] = {"automated": {"enabled": False}}
+    router.get(f"{V1}/applications/guestbook").mock(return_value=Response(200, json=app))
+    route = router.post(f"{V1}/applications/guestbook/rollback").mock(
+        return_value=Response(200, json={})
+    )
+    out = await call(client, "argocd_rollback_application", {"name": "guestbook", "history_id": 2})
+    assert route.called
+    assert out["phase"] == "Requested"
 
 
 async def test_invalidate_cluster_cache_server_url(tool_client):
