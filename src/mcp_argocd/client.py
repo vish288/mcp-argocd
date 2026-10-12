@@ -104,8 +104,10 @@ class ArgoCDClient:
                 resp.status_code, f"JSON parse error: {e}", None, resp.text[:500]
             ) from e
 
-    def _unreachable(self, e: httpx.ConnectError) -> ArgoCDConnectionError:
-        msg = f"Cannot reach Argo CD at {self.config.url}: {e}"
+    def _unreachable(self, e: httpx.TransportError) -> ArgoCDConnectionError:
+        # Strip any userinfo so a credential embedded in the URL never lands in an error.
+        safe = httpx.URL(self.config.url).copy_with(username=None, password=None)
+        msg = f"Cannot reach Argo CD at {safe}: {e}"
         return ArgoCDConnectionError(msg)
 
     async def _request(
@@ -124,7 +126,7 @@ class ArgoCDClient:
         except httpx.TimeoutException as e:
             msg = f"Request timed out: {e}"
             raise ArgoCDTimeoutError(msg) from e
-        except httpx.ConnectError as e:
+        except httpx.TransportError as e:
             raise self._unreachable(e) from e
         self._raise_for_status(resp)
         return self._parse_body(resp)
@@ -152,7 +154,7 @@ class ArgoCDClient:
         except httpx.TimeoutException as e:
             msg = f"Request timed out: {e}"
             raise ArgoCDTimeoutError(msg) from e
-        except httpx.ConnectError as e:
+        except httpx.TransportError as e:
             raise self._unreachable(e) from e
         self._raise_for_status(resp)
         return self._parse_body(resp)
@@ -178,5 +180,5 @@ class ArgoCDClient:
         except httpx.TimeoutException as e:
             msg = f"Log stream timed out: {e}"
             raise ArgoCDTimeoutError(msg) from e
-        except httpx.ConnectError as e:
+        except httpx.TransportError as e:
             raise self._unreachable(e) from e
