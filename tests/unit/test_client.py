@@ -226,6 +226,31 @@ async def test_stream_lines_connect_error(client, mock_api):
             pass
 
 
+async def test_read_error_maps_to_connection_error(client, mock_api):
+    # ReadError (and the other transport errors: ProxyError, RemoteProtocolError,
+    # UnsupportedProtocol) must surface as a connection error, not an unexpected crash.
+    mock_api.get("/api/v1/applications").mock(side_effect=httpx.ReadError("peer reset"))
+    with pytest.raises(ArgoCDConnectionError, match="Cannot reach Argo CD"):
+        await client.get("/applications")
+
+
+async def test_unsupported_protocol_maps_to_connection_error(client, mock_api):
+    mock_api.get("/api/v1/applications").mock(side_effect=httpx.UnsupportedProtocol("bad scheme"))
+    with pytest.raises(ArgoCDConnectionError):
+        await client.get("/applications")
+
+
+async def test_connection_error_strips_url_credentials():
+    # A credential embedded in ARGOCD_URL must never leak into the error message.
+    ac = ArgoCDClient(ArgoCDConfig(url="https://user:secret@host.example.com", token="t"))
+    with respx.mock(base_url="https://host.example.com") as router:
+        router.get("/api/v1/applications").mock(side_effect=httpx.ConnectError("refused"))
+        with pytest.raises(ArgoCDConnectionError) as excinfo:
+            await ac.get("/applications")
+    await ac.close()
+    assert "secret" not in str(excinfo.value)
+
+
 async def test_client_passes_verify_and_timeout():
     # The httpx client must receive the configured timeout and TLS-verify flag;
     # dropping either (verify=, timeout=) is a silent security/behaviour regression.

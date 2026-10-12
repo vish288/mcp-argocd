@@ -1285,7 +1285,8 @@ async def argocd_rollback_application(
     client = _get_client(ctx)
     params = _params(appNamespace=ns, project=project)
     app = await client.get(f"/applications/{bare}", params)
-    if ((app.get("spec", {}).get("syncPolicy") or {}).get("automated")) is not None:
+    automated = (app.get("spec", {}).get("syncPolicy") or {}).get("automated")
+    if automated is not None and automated.get("enabled", True) is not False:
         msg = "Rollback refused: automated sync is enabled on this application"
         raise ArgoCDApiError(400, msg)
     revision = next(
@@ -1460,17 +1461,20 @@ async def argocd_delete_application(
     name: Name,
     cascade: Annotated[bool, Field(description="Also delete the app's resources")] = True,
     propagation_policy: Annotated[
-        Literal["foreground", "background", "orphan"],
-        Field(description="Kubernetes deletion propagation policy"),
+        Literal["foreground", "background"],
+        Field(description="Kubernetes deletion propagation policy (cascade deletes only)"),
     ] = "foreground",
     app_namespace: AppNamespace = None,
     project: Project = None,
 ) -> str:
     """Delete an application. destructive. cascade=False removes only the Application object."""
     bare, ns = _resolve(ctx, name, app_namespace)
+    # Argo CD rejects a propagation policy when cascading is disabled
+    # (getPropagationPolicyFinalizer in server/application/application.go), so send it only
+    # for a cascade delete and let the orphan delete go out as cascade=false alone.
     params = _params(
         cascade=cascade,
-        propagationPolicy=propagation_policy,
+        propagationPolicy=propagation_policy if cascade else None,
         appNamespace=ns,
         project=project,
     )
