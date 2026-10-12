@@ -25,6 +25,7 @@ from ..client import ArgoCDClient
 from ..config import ArgoCDConfig
 from ..exceptions import (
     ArgoCDApiError,
+    ArgoCDConnectionError,
     ArgoCDError,
     ArgoCDTimeoutError,
     ArgoCDWriteDisabledError,
@@ -213,6 +214,11 @@ def _err(error: Exception) -> dict[str, Any]:
     detail: dict[str, Any] = {"error": str(error)}
     if isinstance(error, ArgoCDWriteDisabledError):
         detail["hint"] = "Server is in read-only mode. Set ARGOCD_READ_ONLY=false to enable writes."
+    elif isinstance(error, ArgoCDConnectionError):
+        detail["hint"] = (
+            "Could not reach the Argo CD API. Check ARGOCD_URL, that the server is up, and that "
+            "DNS and network/proxy settings let this host connect."
+        )
     elif isinstance(error, ArgoCDTimeoutError):
         detail["hint"] = (
             "Operation still running. Call argocd_get_operation to check, or raise "

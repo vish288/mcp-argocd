@@ -112,6 +112,13 @@ def test_api_url():
     assert config.api_url == "https://argocd.example.com/api/v1"
 
 
+def test_token_not_in_repr():
+    # repr() lands in logs and tracebacks; the bearer token must never appear there.
+    config = ArgoCDConfig(url="https://a.example.com", token="super-secret-token")
+    assert "super-secret-token" not in repr(config)
+    assert "https://a.example.com" in repr(config)
+
+
 def test_validate_missing_url():
     with pytest.raises(ValueError, match="ARGOCD_URL"):
         ArgoCDConfig(url="", token="x").validate()

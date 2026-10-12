@@ -50,3 +50,7 @@ class ArgoCDWriteDisabledError(ArgoCDError):
 
 class ArgoCDTimeoutError(ArgoCDError):
     """Raised when an operation or HTTP request exceeds its deadline."""
+
+
+class ArgoCDConnectionError(ArgoCDError):
+    """Raised when the Argo CD server cannot be reached (DNS, refused, TLS)."""

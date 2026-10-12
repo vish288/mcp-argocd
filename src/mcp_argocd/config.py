@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 _FALSEY = ("false", "0", "no")
 _TRUTHY = ("true", "1", "yes")
@@ -29,7 +29,7 @@ class ArgoCDConfig:
     """Configuration for the Argo CD MCP server, loaded from environment variables."""
 
     url: str = ""
-    token: str = ""
+    token: str = field(default="", repr=False)  # keep the bearer token out of repr/logs
     read_only: bool = False
     timeout: int = 30
     ssl_verify: bool = True

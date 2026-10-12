@@ -24,7 +24,7 @@ deprecations do not affect it.
 - **Prompts**: `src/mcp_argocd/servers/prompts.py` — 7 MCP prompts (multi-tool workflows)
 - **Helpers**: `src/mcp_argocd/servers/_helpers.py` — file loader with traversal guard, `_scrub` over one `SECRET_KEYS` tuple, `_page`, `_split_app_name`, `_parse_resource_selector`, `_truncate`, `_terminal`
 - **Config**: `src/mcp_argocd/config.py` — `ArgoCDConfig` built from env vars
-- **Exceptions**: `src/mcp_argocd/exceptions.py` — `ArgoCDError` base; `ArgoCDApiError` (with `grpc_code`), `ArgoCDAuthError`, `ArgoCDNotFoundError`, `ArgoCDConflictError`, `ArgoCDWriteDisabledError`, `ArgoCDTimeoutError`
+- **Exceptions**: `src/mcp_argocd/exceptions.py` — `ArgoCDError` base; `ArgoCDApiError` (with `grpc_code`), `ArgoCDAuthError`, `ArgoCDNotFoundError`, `ArgoCDConflictError`, `ArgoCDWriteDisabledError`, `ArgoCDTimeoutError`, `ArgoCDConnectionError`
 - **Tests**: `tests/` — `unit/test_tools.py`, `test_tool_contract.py`, `test_client.py`, `test_config.py`, `test_exceptions.py`, `test_helpers.py`, `test_server_assembly.py`, `test_resources.py`, `test_prompts.py`, `test_doc_parity.py`, `test_derived_artifacts.py`, plus `tests/test_links.py`. Fixtures in `tests/fixtures/` and shared fixtures in `tests/conftest.py`
 
 ## Development

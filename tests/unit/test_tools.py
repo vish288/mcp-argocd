@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -10,6 +11,12 @@ from fastmcp.exceptions import ToolError
 from httpx import Response
 
 from mcp_argocd.servers import argocd as srv
+
+
+def _ts(delta_hours: float) -> str:
+    """RFC-3339 timestamp *delta_hours* from now (relative, so no hard-coded year bomb)."""
+    return (datetime.now(timezone.utc) + timedelta(hours=delta_hours)).isoformat()
+
 
 FIX = Path(__file__).resolve().parents[1] / "fixtures"
 V1 = "/api/v1"
@@ -387,7 +394,7 @@ _NEW_DONE = {
     "status": {
         "operationState": {
             "phase": "Succeeded",
-            "startedAt": "2030-01-01T00:00:00Z",
+            "startedAt": _ts(1),  # after the request time, relative (no 2030 time bomb)
             "operation": {"sync": {"revision": "newrev"}},
         },
         "health": {"status": "Healthy"},
@@ -418,6 +425,51 @@ async def test_sync_with_wait_polls_past_stale(tool_client, monkeypatch):
     assert out["phase"] == "Succeeded" and out["timed_out"] is False
     assert out["sync"]["revision"] == "newrev"  # the new op, not the stale "oldrev"
     assert route.call_count == 2  # did not return the stale terminal state at once
+
+
+def _done_app(started_at: str, revision: str) -> dict:
+    return {
+        "status": {
+            "operationState": {
+                "phase": "Succeeded",
+                "startedAt": started_at,
+                "operation": {"sync": {"revision": revision}},
+            },
+            "health": {"status": "Healthy"},
+            "sync": {"status": "Synced", "revision": revision},
+        }
+    }
+
+
+async def test_sync_wait_recognizes_new_op_by_start_time(tool_client, monkeypatch):
+    # started_ok path in isolation: the POST carries no revision, so want_revision is None and
+    # rev_ok can never fire; the new operation is recognized only by startedAt >= request time.
+    _fast_clock(monkeypatch)
+    client, router = tool_client
+    router.post(f"{V1}/applications/guestbook/sync").mock(
+        return_value=Response(200, json={"operation": {"sync": {}}})
+    )
+    router.get(f"{V1}/applications/guestbook").mock(
+        return_value=Response(200, json=_done_app(_ts(1), "whatever"))
+    )
+    out = await call(client, "argocd_sync_application", {"name": "guestbook", "wait": True})
+    assert out["phase"] == "Succeeded" and out["timed_out"] is False
+
+
+async def test_sync_wait_recognizes_new_op_by_revision(tool_client, monkeypatch):
+    # rev_ok path in isolation: the run started in the past (started_ok is False), so the new
+    # operation is recognized only because its revision matches the one the POST requested.
+    _fast_clock(monkeypatch)
+    client, router = tool_client
+    router.post(f"{V1}/applications/guestbook/sync").mock(
+        return_value=Response(200, json={"operation": {"sync": {"revision": "wantrev"}}})
+    )
+    router.get(f"{V1}/applications/guestbook").mock(
+        return_value=Response(200, json=_done_app(_ts(-100000), "wantrev"))
+    )
+    out = await call(client, "argocd_sync_application", {"name": "guestbook", "wait": True})
+    assert out["phase"] == "Succeeded" and out["timed_out"] is False
+    assert out["sync"]["revision"] == "wantrev"
 
 
 async def test_rollback_refused_when_automated(tool_client):
@@ -921,7 +973,110 @@ async def test_delete_application(tool_client):
     route = router.delete(f"{V1}/applications/guestbook").mock(return_value=Response(200, json={}))
     out = await call(client, "argocd_delete_application", {"name": "guestbook", "cascade": False})
     assert out == {"status": "deleted", "name": "guestbook", "cascade": False}
-    assert dict(route.calls.last.request.url.params)["propagationPolicy"] == "foreground"
+    params = dict(route.calls.last.request.url.params)
+    assert params["propagationPolicy"] == "foreground"
+    # cascade=False must reach the wire as `cascade=false`; dropping it (cascade or None)
+    # lets Argo CD default to cascade=true and delete every managed resource.
+    assert params["cascade"] == "false"
+
+
+async def test_delete_application_cascade_default_true(tool_client):
+    client, router = tool_client
+    route = router.delete(f"{V1}/applications/guestbook").mock(return_value=Response(200, json={}))
+    await call(client, "argocd_delete_application", {"name": "guestbook"})
+    assert dict(route.calls.last.request.url.params)["cascade"] == "true"
+
+
+async def test_delete_resource_force_and_orphan_on_wire(tool_client):
+    client, router = tool_client
+    route = router.delete(f"{V1}/applications/guestbook/resource").mock(
+        return_value=Response(200, json={})
+    )
+    await call(
+        client,
+        "argocd_delete_resource",
+        {"name": "guestbook", "kind": "Pod", "resource_name": "p", "force": True, "orphan": True},
+    )
+    params = dict(route.calls.last.request.url.params)
+    assert params["force"] == "true"
+    assert params["orphan"] == "true"
+
+
+async def test_delete_resource_force_orphan_absent_by_default(tool_client):
+    client, router = tool_client
+    route = router.delete(f"{V1}/applications/guestbook/resource").mock(
+        return_value=Response(200, json={})
+    )
+    await call(
+        client, "argocd_delete_resource", {"name": "guestbook", "kind": "Pod", "resource_name": "p"}
+    )
+    params = dict(route.calls.last.request.url.params)
+    assert "force" not in params
+    assert "orphan" not in params
+
+
+async def test_create_upsert_and_validate_on_wire(tool_client):
+    client, router = tool_client
+    route = router.post(f"{V1}/applications").mock(return_value=Response(200, json={}))
+    base = {
+        "name": "preview",
+        "project": "default",
+        "repo_url": "https://r",
+        "path": "app",
+        "dest_server": "https://k",
+        "dest_namespace": "preview",
+    }
+    # default: validate on (param omitted so Argo defaults to true), no upsert
+    await call(client, "argocd_create_application", base)
+    params = dict(route.calls.last.request.url.params)
+    assert "validate" not in params
+    assert "upsert" not in params
+    # explicit upsert=True, validate=False must both reach the wire
+    await call(client, "argocd_create_application", {**base, "upsert": True, "validate": False})
+    params = dict(route.calls.last.request.url.params)
+    assert params["upsert"] == "true"
+    assert params["validate"] == "false"
+
+
+async def test_sync_revision_on_wire(tool_client):
+    client, router = tool_client
+    route = router.post(f"{V1}/applications/guestbook/sync").mock(
+        return_value=Response(200, json={})
+    )
+    await call(client, "argocd_sync_application", {"name": "guestbook", "revision": "deadbeef"})
+    assert json.loads(route.calls.last.request.content)["revision"] == "deadbeef"
+
+
+async def test_rollback_prune_and_dry_run_on_wire(tool_client):
+    client, router = tool_client
+    app = fx("application.json")
+    app["spec"]["syncPolicy"] = {}
+    router.get(f"{V1}/applications/guestbook").mock(return_value=Response(200, json=app))
+    route = router.post(f"{V1}/applications/guestbook/rollback").mock(
+        return_value=Response(200, json={})
+    )
+    await call(
+        client,
+        "argocd_rollback_application",
+        {"name": "guestbook", "history_id": 2, "prune": True, "dry_run": True},
+    )
+    body = json.loads(route.calls.last.request.content)
+    assert body["prune"] is True
+    assert body["dryRun"] is True
+
+
+async def test_rollback_refused_when_automated_is_empty(tool_client):
+    # syncPolicy.automated == {} is a valid Argo "auto-sync on" config; a truthiness
+    # check (`if automated:`) would wrongly allow the rollback. The guard is `is not None`.
+    client, router = tool_client
+    app = fx("application.json")
+    app["spec"]["syncPolicy"] = {"automated": {}}
+    router.get(f"{V1}/applications/guestbook").mock(return_value=Response(200, json=app))
+    out = await call_err(
+        client, "argocd_rollback_application", {"name": "guestbook", "history_id": 2}
+    )
+    assert out["status_code"] == 400
+    assert "auto-sync" in out["hint"].lower()
 
 
 async def test_invalidate_cluster_cache_server_url(tool_client):
