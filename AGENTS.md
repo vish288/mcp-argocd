@@ -42,7 +42,7 @@ target py310; lint rules include `S` (bandit), `EM`, `N`, `UP`. `tests/**` waive
 
 ## Patterns
 
-- All tools are `async def` returning JSON strings
+- All tools are `async def` returning a `ToolResult`: `_ok`/`_ok_scrubbed`/`_paginated` wrap a JSON object in pretty text plus the same object as `structuredContent`. Tools advertise no `outputSchema` (payloads pass upstream fields through untyped); a typed schema is opt-in per tool via `output_schema=`
 - `_ok(data)` for success, `_err(e)` for failure, `_paginated(items, total, has_more, next_offset)` for lists; `_ok_scrubbed` for repository/cluster/project payloads
 - `_slim_*` functions trim each payload type; `get_*` tools expose `full=True` for the raw payload
 - Write access control: `@tool_result(write=True)` runs `_check_write(ctx)`, which raises `ArgoCDWriteDisabledError` when `ARGOCD_READ_ONLY=true`
