@@ -67,6 +67,15 @@ class TestPage:
         assert has_more is False
         assert next_offset is None
 
+    def test_exact_boundary_is_last_page(self):
+        # offset+limit == total: the page is full but there is nothing after it.
+        # Guards against `next_offset < total` drifting to `<=` (an endless extra page).
+        page, total, has_more, next_offset = _page(list(range(6)), 3, 3)
+        assert page == [3, 4, 5]
+        assert total == 6
+        assert has_more is False
+        assert next_offset is None
+
 
 class TestSplitAppName:
     def test_plain_name(self):

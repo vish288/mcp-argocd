@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from unittest.mock import patch
+
 import httpx
 import pytest
 import respx
@@ -12,6 +14,7 @@ from mcp_argocd.exceptions import (
     ArgoCDApiError,
     ArgoCDAuthError,
     ArgoCDConflictError,
+    ArgoCDConnectionError,
     ArgoCDNotFoundError,
     ArgoCDTimeoutError,
 )
@@ -96,6 +99,17 @@ async def test_conflict_from_grpc_code(client, mock_api):
     with pytest.raises(ArgoCDConflictError) as exc:
         await client.post("/applications/x/sync")
     assert exc.value.grpc_code == 9
+
+
+async def test_conflict_from_409_grpc_code_10(client, mock_api):
+    # 409 with grpc code 10 (Aborted) is a conflict just like a 400 with code 9.
+    mock_api.post("/api/v1/applications/x/sync").mock(
+        return_value=httpx.Response(409, json={"message": "aborted", "code": 10})
+    )
+    with pytest.raises(ArgoCDConflictError) as exc:
+        await client.post("/applications/x/sync")
+    assert exc.value.status_code == 409
+    assert exc.value.grpc_code == 10
 
 
 async def test_plain_400_is_api_error_not_conflict(client, mock_api):
@@ -191,6 +205,37 @@ async def test_get_version_timeout(client, mock_api):
     mock_api.get("/api/version").mock(side_effect=httpx.ConnectTimeout("slow"))
     with pytest.raises(ArgoCDTimeoutError):
         await client.get_version()
+
+
+async def test_connect_error_maps_to_connection_error(client, mock_api):
+    mock_api.get("/api/v1/applications").mock(side_effect=httpx.ConnectError("refused"))
+    with pytest.raises(ArgoCDConnectionError, match="Cannot reach Argo CD"):
+        await client.get("/applications")
+
+
+async def test_get_version_connect_error(client, mock_api):
+    mock_api.get("/api/version").mock(side_effect=httpx.ConnectError("no route"))
+    with pytest.raises(ArgoCDConnectionError):
+        await client.get_version()
+
+
+async def test_stream_lines_connect_error(client, mock_api):
+    mock_api.get("/api/v1/applications/x/logs").mock(side_effect=httpx.ConnectError("refused"))
+    with pytest.raises(ArgoCDConnectionError):
+        async for _ in client.stream_lines("/applications/x/logs"):
+            pass
+
+
+async def test_client_passes_verify_and_timeout():
+    # The httpx client must receive the configured timeout and TLS-verify flag;
+    # dropping either (verify=, timeout=) is a silent security/behaviour regression.
+    with patch("mcp_argocd.client.httpx.AsyncClient") as mock_cls:
+        ArgoCDClient(
+            ArgoCDConfig(url="https://a.example.com", token="t", timeout=50, ssl_verify=False)
+        )
+    _, kwargs = mock_cls.call_args
+    assert kwargs["timeout"] == 50
+    assert kwargs["verify"] is False
 
 
 async def test_json_parse_error_on_success(client, mock_api):
