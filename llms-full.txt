@@ -193,6 +193,9 @@ one applies. The body is the result's pretty-printed text content; the result ca
 `structuredContent`, because a strict MCP client (the TypeScript SDK) validates `structuredContent`
 against the tool's `outputSchema` even when `isError` is true and would reject the error otherwise.
 Unexpected bugs are also `isError: true` but carry `TypeName: message` text and a logged traceback.
+Successful results carry the same JSON object as `structuredContent` alongside the pretty-printed
+text, so a client may read either. Tools advertise no `outputSchema`: payloads pass upstream fields
+through untyped, and a typed schema is opt-in per tool via `output_schema=`.
 
 ## Security Considerations
 
