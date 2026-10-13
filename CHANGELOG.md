@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.5.0] - 2026-10-13
+
+### Features
+- feat(read-only): lock via MCP_READ_ONLY; hide write tools and prompts (e5cb803)
+
+### Tests
+- test: consolidate argocd count constants and drop tautologies (6dfc1b0)
+- test: merge three redundant argocd behaviour tests (158238f)
+
+
 ## [0.4.0] - 2026-10-12
 
 ### Features
