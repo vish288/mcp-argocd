@@ -36,6 +36,13 @@
           "isRequired": false,
           "format": "string",
           "isSecret": false
+        },
+        {
+          "name": "MCP_READ_ONLY",
+          "description": "Shared read-only switch across the mcp-* servers; same effect as ARGOCD_READ_ONLY (true/false)",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": false
         }
       ]
     }

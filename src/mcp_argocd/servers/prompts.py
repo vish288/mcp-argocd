@@ -61,7 +61,7 @@ def review_drift(project: str = "", name: str = "") -> list[Message]:
     )
 
 
-@mcp.prompt(tags={"argocd", "sync"})
+@mcp.prompt(tags={"argocd", "sync", "write"})
 def safe_sync(name: str, prune: str = "false") -> list[Message]:
     """Sync an application safely: check sync windows, dry-run, review, then sync and wait."""
     bare, _ = _split_app_name(name)
@@ -72,7 +72,7 @@ def safe_sync(name: str, prune: str = "false") -> list[Message]:
     )
 
 
-@mcp.prompt(tags={"argocd", "rollback"})
+@mcp.prompt(tags={"argocd", "rollback", "write"})
 def rollback_application(name: str, history_id: str = "") -> list[Message]:
     """Roll back an app: pick history, confirm the commit, check auto-sync, then verify."""
     bare, _ = _split_app_name(name)

@@ -14,7 +14,9 @@ from fastmcp import Client, FastMCP
 
 from mcp_argocd.client import ArgoCDClient
 from mcp_argocd.config import ArgoCDConfig
-from mcp_argocd.servers.argocd import mcp
+from mcp_argocd.servers import prompts as _prompts  # noqa: F401 — registers the prompts
+from mcp_argocd.servers import resources as _resources  # noqa: F401 — registers the resources
+from mcp_argocd.servers.argocd import _lock_read_only, mcp
 
 TEST_URL = "https://argocd.example.com"
 TEST_TOKEN = "test-token"
@@ -60,12 +62,22 @@ async def _tool_client(*, read_only: bool) -> AsyncIterator[tuple[Client, respx.
 
     original = mcp._lifespan
     mcp._lifespan = mock_lifespan
+    # Snapshot visibility state so the lock a read-only client applies does not leak into
+    # the shared module ``mcp`` used by read-write tests: truncate the appended Visibility
+    # transforms and restore instructions in ``finally`` (the lock's idempotency keys off
+    # that restored instructions sentence, so there is no separate flag to reset).
+    tx = len(mcp._transforms)
+    instructions = mcp.instructions
     try:
+        if read_only:
+            _lock_read_only(mcp, sources=["ARGOCD_READ_ONLY"])
         with respx.mock(base_url=TEST_URL, assert_all_called=False) as router:
             async with Client(mcp) as mcp_client:
                 yield mcp_client, router
     finally:
         mcp._lifespan = original
+        del mcp._transforms[tx:]
+        mcp.instructions = instructions
 
 
 @pytest.fixture

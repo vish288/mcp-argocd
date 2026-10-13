@@ -12,7 +12,7 @@ MCP server that wraps the Argo CD REST API. Works with Argo CD 3.3+ on any insta
 - **Transport**: stdio (default), streamable-http (recommended for remote), SSE (deprecated by the 2026-07-28 spec)
 - **Registry**: `io.github.vish288/mcp-argocd`
 - **Required env vars**: `ARGOCD_URL` (base URL including any path prefix), `ARGOCD_TOKEN` (bearer token)
-- **Optional env vars**: `ARGOCD_READ_ONLY` (disable writes), `ARGOCD_TIMEOUT` (request timeout), `ARGOCD_SSL_VERIFY` (SSL verification), `ARGOCD_APP_NAMESPACE` (default appNamespace)
+- **Optional env vars**: `MCP_READ_ONLY` / `ARGOCD_READ_ONLY` (lock read-only), `ARGOCD_TIMEOUT` (request timeout), `ARGOCD_SSL_VERIFY` (SSL verification), `ARGOCD_APP_NAMESPACE` (default appNamespace)
 
 ## Documentation
 
@@ -33,7 +33,8 @@ MCP server that wraps the Argo CD REST API. Works with Argo CD 3.3+ on any insta
 |----------|----------|---------|-------------|
 | `ARGOCD_URL` | Yes | - | Base URL including any path prefix (e.g. `https://argocd.example.com`). Also reads `ARGOCD_SERVER`. |
 | `ARGOCD_TOKEN` | Yes | - | Bearer token. Also reads `ARGOCD_AUTH_TOKEN` and `ARGOCD_API_TOKEN`. |
-| `ARGOCD_READ_ONLY` | No | `false` | Set to `true` to block the 9 write tools before any API call |
+| `ARGOCD_READ_ONLY` | No | `false` | Any value other than `false`/`0`/`no`/`off`/empty locks the server read-only: the 9 write tools are not listed and are refused before any API call |
+| `MCP_READ_ONLY` | No | `false` | Same as `ARGOCD_READ_ONLY`; shared name across the mcp-* servers. Either being truthy locks the server read-only, and nothing can turn it back off at runtime |
 | `ARGOCD_TIMEOUT` | No | `30` | Request timeout in seconds |
 | `ARGOCD_SSL_VERIFY` | No | `true` | Set to `false` to skip SSL verification (`ARGOCD_INSECURE=true` is an alias) |
 | `ARGOCD_APP_NAMESPACE` | No | - | Default `appNamespace` for apps-in-any-namespace installs |
@@ -186,8 +187,11 @@ The server provides MCP prompts — reusable multi-tool workflow templates clien
 
 ## Error results
 
-Expected failures — a missing app (404), a denied permission (403), a write blocked by read-only
-mode — return a tool result with `isError: true` rather than a success envelope. The body is a JSON
+Expected failures — a missing app (404), a denied permission (403), a write that reaches the
+read-only guard — return a tool result with `isError: true` rather than a success envelope. (In
+locked read-only mode the write tools are hidden, so calling one returns an `Unknown tool` error;
+the envelope below is the guard's own response, returned only when a client reaches a write tool
+anyway.) The body is a JSON
 object `{"error", "status_code"?, "body"?, "hint"?}`, where `hint` names a corrective action when
 one applies. The body is the result's pretty-printed text content; the result carries no
 `structuredContent`, because a strict MCP client (the TypeScript SDK) validates `structuredContent`
@@ -200,7 +204,7 @@ through untyped, and a typed schema is opt-in per tool via `output_schema=`.
 ## Security Considerations
 
 - **Token scope**: use the minimum RBAC the workflow needs; a read-only role needs `applications, get` and `logs, get`.
-- **Read-only mode**: `ARGOCD_READ_ONLY=true` blocks all 9 write tools before any API call.
+- **Read-only mode**: set `MCP_READ_ONLY=true` (or the `ARGOCD_READ_ONLY` alias, or `--read-only`) to lock the server read-only. The 9 write tools and write-workflow prompts are not listed and cannot be enabled from the client; a falsy value never unlocks it. Set it in a launch the deployer owns (Claude Code `managed-mcp.json` `env`, a container/k8s env).
 - **SSL verification**: `true` by default. Only disable for self-signed certificates in trusted networks.
 - **Secret scrubbing**: repository, cluster, and project payloads are scrubbed of credentials, cluster `config`, and role `jwtTokens` — even with `full=True`. `has_credentials` reports whether repo credentials exist.
 - **MCP tool annotations**: every tool declares `readOnlyHint`, `destructiveHint`, and `idempotentHint` for client-side permission prompts.

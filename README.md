@@ -78,7 +78,8 @@ pip install mcp-argocd    # or install into an environment
 |----------|----------|---------|-------------|
 | `ARGOCD_URL` | Yes | - | Base URL including any path prefix. Also reads `ARGOCD_SERVER`. |
 | `ARGOCD_TOKEN` | Yes | - | Bearer token. Also reads `ARGOCD_AUTH_TOKEN`, `ARGOCD_API_TOKEN`. |
-| `ARGOCD_READ_ONLY` | No | `false` | `true` blocks the 9 write tools before any API call |
+| `ARGOCD_READ_ONLY` | No | `false` | Any value other than `false`/`0`/`no`/`off`/empty locks the server read-only: the 9 write tools are not listed and are refused before any API call |
+| `MCP_READ_ONLY` | No | `false` | Same as `ARGOCD_READ_ONLY`; shared name across the mcp-* servers. Either being truthy locks the server read-only, and nothing can turn it back off at runtime |
 | `ARGOCD_TIMEOUT` | No | `30` | Request timeout in seconds |
 | `ARGOCD_SSL_VERIFY` | No | `true` | `false` skips SSL verification (`ARGOCD_INSECURE=true` is an alias) |
 | `ARGOCD_APP_NAMESPACE` | No | - | Default `appNamespace` for apps-in-any-namespace installs |
@@ -121,8 +122,11 @@ no roots, sampling, logging, elicitation, or resource subscriptions.
 
 ### Error results
 
-Expected failures — a missing app (404), a denied permission (403), a write blocked by read-only
-mode — return a tool result with `isError: true` rather than a success envelope. The body is a JSON
+Expected failures — a missing app (404), a denied permission (403), a write that reaches the
+read-only guard — return a tool result with `isError: true` rather than a success envelope. (In
+locked read-only mode the write tools are hidden, so calling one returns an `Unknown tool` error;
+the envelope below is the guard's own response, returned only when a client reaches a write tool
+anyway.) The body is a JSON
 object `{"error", "status_code"?, "body"?, "hint"?}`, where `hint` names a corrective action when
 one applies. The body is the result's pretty-printed text content; the result carries no
 `structuredContent`, because a strict MCP client (the TypeScript SDK) validates `structuredContent`
@@ -242,7 +246,7 @@ The server provides MCP prompts — multi-tool workflow templates clients surfac
 ## Security Considerations
 
 - **Token scope**: use the minimum RBAC the workflow needs. A read-only role needs `applications, get` and `logs, get`.
-- **Read-only mode**: `ARGOCD_READ_ONLY=true` blocks all 9 write tools before any API call.
+- **Read-only mode**: set `MCP_READ_ONLY=true` (or the `ARGOCD_READ_ONLY` alias, or `--read-only`) to lock the server read-only. The 9 write tools and the write-workflow prompts are not listed and cannot be enabled from the client; a falsy value never unlocks it. Set it in a launch the deployer owns (Claude Code `managed-mcp.json` `env`, a container/k8s env), so no user can override it.
 - **SSL verification**: on by default. Disable only for self-signed certificates in trusted networks.
 - **Secret scrubbing**: repository, cluster, and project payloads are scrubbed of credentials, cluster `config`, and role `jwtTokens`, even with `full=True`.
 - **MCP tool annotations**: every tool declares `readOnlyHint`, `destructiveHint`, and `idempotentHint`.
@@ -281,7 +285,7 @@ uvx mcp-argocd --read-only --insecure
 
 **Does it need kubectl or cluster credentials?** No. It talks to the Argo CD API over HTTPS with a bearer token. It never touches the cluster directly.
 
-**Is it safe for read-only use?** Yes. Set `ARGOCD_READ_ONLY=true`. The server blocks all nine write tools before any API call.
+**Is it safe for read-only use?** Yes. Set `MCP_READ_ONLY=true` (or the `ARGOCD_READ_ONLY` alias). The server hides all nine write tools and refuses them before any API call, and nothing can turn it back off at runtime.
 
 **Which token does it need?** It needs a bearer token in `ARGOCD_TOKEN`. Generate one from a local account with the `apiKey` capability, or use a project-role token. It also reads `ARGOCD_AUTH_TOKEN` and `ARGOCD_API_TOKEN`.
 
