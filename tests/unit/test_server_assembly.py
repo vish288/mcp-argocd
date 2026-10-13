@@ -30,6 +30,7 @@ def _set_env(monkeypatch) -> None:
     monkeypatch.setenv("ARGOCD_URL", "https://argocd.example.com")
     monkeypatch.setenv("ARGOCD_TOKEN", "test-token")
     monkeypatch.delenv("ARGOCD_READ_ONLY", raising=False)
+    monkeypatch.delenv("MCP_READ_ONLY", raising=False)
     for module in ("mcp_argocd.servers.resources", "mcp_argocd.servers.prompts"):
         importlib.import_module(module)
 

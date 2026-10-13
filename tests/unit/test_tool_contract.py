@@ -16,6 +16,8 @@ from httpx import ConnectError, Response
 
 from mcp_argocd.servers.argocd import mcp
 
+from ._read_only import write_decorated_names
+
 APP = "/applications/guestbook"
 # swagger names the target `resourceName`; `name` is the path param (the app)
 RES_QUERY = {"resourceName": "web", "group": "", "version": "v1", "kind": "Deployment"}
@@ -232,17 +234,7 @@ ROWS = [
     ("argocd_get_settings", {}, "GET", "/settings", {}, None),
 ]
 
-WRITE_NAMES = {
-    "argocd_sync_application",
-    "argocd_rollback_application",
-    "argocd_terminate_operation",
-    "argocd_create_application",
-    "argocd_patch_application",
-    "argocd_delete_application",
-    "argocd_run_resource_action",
-    "argocd_delete_resource",
-    "argocd_invalidate_cluster_cache",
-}
+WRITE_NAMES = write_decorated_names()
 WRITE_ROWS = [r for r in ROWS if r[0] in WRITE_NAMES]
 
 NOT_FOUND_KEYS = {"error", "status_code", "body", "hint"}
@@ -394,23 +386,15 @@ async def test_forced_permission_denied(tool_client):
     assert "applications" in hint and "sync" in hint and "default/app" in hint
 
 
-@pytest.mark.parametrize("row", WRITE_ROWS, ids=[r[0] for r in WRITE_ROWS])
-async def test_write_blocked_in_read_only(readonly_client, row):
-    name, args, *_ = row
-    client, _router = readonly_client
-    parsed = _err_body(await client.call_tool(name, args, raise_on_error=False))
-    assert "read-only" in parsed["hint"]
-
-
 async def test_every_tool_has_a_row(tool_client):
     client, _router = tool_client
     assert {r[0] for r in ROWS} == {t.name for t in await client.list_tools()}
 
 
 async def test_write_names_match_annotations():
-    """``WRITE_NAMES`` is hand-maintained; keep it honest against the registry so a new
-    write tool annotated ``readOnlyHint: False`` but missing ``write=True`` cannot slip
-    past the read-only gate unnoticed.
+    """The write set (from the ``@tool_result(write=True)`` guard) must equal the set
+    annotated ``readOnlyHint: False``, so a write tool cannot carry one marker without
+    the other and slip past either the read-only gate or the lock.
     """
     derived = {t.name for t in await mcp._list_tools() if not t.annotations.read_only_hint}
     assert WRITE_NAMES == derived

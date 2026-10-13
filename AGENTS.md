@@ -45,7 +45,7 @@ target py310; lint rules include `S` (bandit), `EM`, `N`, `UP`. `tests/**` waive
 - All tools are `async def` returning a `ToolResult`: `_ok`/`_ok_scrubbed`/`_paginated` wrap a JSON object in pretty text plus the same object as `structuredContent`. Tools advertise no `outputSchema` (payloads pass upstream fields through untyped); a typed schema is opt-in per tool via `output_schema=`
 - `_ok(data)` for success, `_err(e)` for failure, `_paginated(items, total, has_more, next_offset)` for lists; `_ok_scrubbed` for repository/cluster/project payloads
 - `_slim_*` functions trim each payload type; `get_*` tools expose `full=True` for the raw payload
-- Write access control: `@tool_result(write=True)` runs `_check_write(ctx)`, which raises `ArgoCDWriteDisabledError` when `ARGOCD_READ_ONLY=true`
+- Write access control: `@tool_result(write=True)` runs `_check_write(ctx)`, which raises `ArgoCDWriteDisabledError` when read-only; in read-only the write tools are also hidden from `tools/list` by `_lock_read_only` (see Read-only mode)
 - Client-side paging: Argo CD list endpoints take no paging parameters, so the server fetches once, filters, sorts by name, and slices
 - `namespace/name` handling: `_split_app_name` splits apps-in-any-namespace names into `name` + `appNamespace`
 - Tags: every tool tagged `{"argocd", "<category>", "read"|"write"}`
@@ -73,7 +73,13 @@ Every tool MUST have `annotations={}` with at minimum `readOnlyHint`.
 - `Literal[...]` for known value sets; flatten — no nested dicts unless necessary.
 
 ### Read-only mode
-Every write tool MUST call `_check_write(ctx)` (via `@tool_result(write=True)`) before any mutation.
+A truthy `MCP_READ_ONLY` (shared across the mcp-* servers) or the `ARGOCD_READ_ONLY` alias, or
+`--read-only`, locks the server read-only for the process: `Config.from_env` ORs the sources (any
+truthy one wins; a falsy value never unlocks and logs one WARNING), and the lifespan calls
+`_lock_read_only(server)`, which `server.disable(tags={"write"})` so write tools and write-workflow
+prompts drop out of `tools/list`/`prompts/list` and `tools/call` on them returns "Unknown tool". The
+lock is computed once and never cleared; `src/` never calls `enable`/`enable_components`. Every write
+tool still calls `_check_write(ctx)` (via `@tool_result(write=True)`) as defence in depth.
 
 ## Naming verbs
 
@@ -124,13 +130,16 @@ returns a user message (workflow template) plus an assistant acknowledgment.
 |---|---|---|---|
 | `ARGOCD_URL` | yes | — | Base URL including any path prefix; trailing slash stripped; `/api/v1` appended. Falls back to `ARGOCD_SERVER` |
 | `ARGOCD_TOKEN` | yes | — | Bearer token; also reads `ARGOCD_AUTH_TOKEN`, `ARGOCD_API_TOKEN` |
-| `ARGOCD_READ_ONLY` | no | `false` | `true`/`1`/`yes` blocks the 9 write tools before any API call |
+| `ARGOCD_READ_ONLY` | no | `false` | Any value other than `false`/`0`/`no`/`off`/empty locks the server read-only: the 9 write tools are not listed and are refused before any API call |
+| `MCP_READ_ONLY` | no | `false` | Same as `ARGOCD_READ_ONLY`; shared name across the mcp-* servers. Either being truthy locks read-only, and nothing turns it off at runtime |
 | `ARGOCD_TIMEOUT` | no | `30` | Request timeout in seconds |
 | `ARGOCD_SSL_VERIFY` | no | `true` | `false`/`0`/`no` skips verification; `ARGOCD_INSECURE=true` is an alias |
 | `ARGOCD_APP_NAMESPACE` | no | — | Default `appNamespace` for apps-in-any-namespace installs |
 
 CLI flags override env: `--argocd-url`, `--read-only`, `--insecure`, plus
 `--transport {stdio,sse,streamable-http}` with `--host` and `--port` for non-stdio transports.
+`--read-only` can only raise the lock (it sets `ARGOCD_READ_ONLY=true`); there is no
+`--no-read-only`, so argv can never unlock a server whose env already locked it.
 `--argocd-token` is deprecated and hidden from `--help`; it still works and warns on stderr (it
 exposes the token to `ps` and shell history). Set `ARGOCD_TOKEN` instead.
 
