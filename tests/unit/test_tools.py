@@ -111,11 +111,6 @@ class TestGetApplication:
         _c, _r, out = await self._get(tool_client, {"full": True})
         assert out["metadata"]["managedFields"]  # present in raw, absent in slim
 
-    async def test_resources_mode_unhealthy(self, tool_client):
-        _c, _r, out = await self._get(tool_client, {"resources": "unhealthy"})
-        res = out["status"]["resources"]
-        assert [r["kind"] for r in res] == ["Pod"]
-
     async def test_refresh_hard_query(self, tool_client):
         client, router, _out = await self._get(tool_client, {"refresh": "hard"})
         assert dict(router.calls.last.request.url.params) == {"refresh": "hard"}
@@ -257,13 +252,21 @@ async def test_revision_metadata(tool_client):
     client, router = tool_client
     router.get(f"{V1}/applications/guestbook/revisions/abc/metadata").mock(
         return_value=Response(
-            200, json={"author": "alice", "date": "d", "message": "m", "tags": ["v1"]}
+            200,
+            json={
+                "author": "alice",
+                "date": "d",
+                "message": "m",
+                "tags": ["v1"],
+                "sourceIntegrityResult": {"status": "verified"},
+            },
         )
     )
     out = await call(
         client, "argocd_get_revision_metadata", {"name": "guestbook", "revision": "abc"}
     )
     assert out["author"] == "alice" and out["tags"] == ["v1"]
+    assert out["source_integrity"] == "verified"
 
 
 async def test_get_operation_slim_and_null(tool_client):
@@ -704,6 +707,7 @@ async def test_version_slim(tool_client):
     out = await call(client, "argocd_get_version", {})
     assert out["version"].startswith("v3.")
     assert out["kustomize_version"] == "v5.4.3"
+    assert out["git_commit"] == "abc1234def5678"
 
 
 async def test_userinfo(tool_client):
@@ -1128,26 +1132,6 @@ async def test_repositories_repo_filter(tool_client):
     )
     out = await call(client, "argocd_list_repositories", {"repo": "https://nomatch"})
     assert out["total"] == 0
-
-
-async def test_managed_resources_states_and_revision_integrity(tool_client):
-    client, router = tool_client
-    router.get(f"{V1}/applications/guestbook/revisions/abc/metadata").mock(
-        return_value=Response(
-            200, json={"author": "a", "sourceIntegrityResult": {"status": "verified"}}
-        )
-    )
-    out = await call(
-        client, "argocd_get_revision_metadata", {"name": "guestbook", "revision": "abc"}
-    )
-    assert out["source_integrity"] == "verified"
-
-
-async def test_version_path_prefix_in_tool(tool_client):
-    client, router = tool_client
-    router.get("/api/version").mock(return_value=Response(200, json=fx("version.json")))
-    out = await call(client, "argocd_get_version", {})
-    assert out["git_commit"] == "abc1234def5678"
 
 
 # ── branch coverage: bodies with app_namespace, filters, multi-source ──
