@@ -14,12 +14,9 @@ from fastmcp import Client
 
 from mcp_argocd.servers.argocd import mcp
 
-SRC = Path(__file__).resolve().parents[2] / "src"
+from ._expected import EXPECTED_PROMPTS, EXPECTED_RESOURCES, EXPECTED_TOOLS
 
-# Grows with the build: 14 (T4) -> 22 (T5) -> 37 (T6). Resources/prompts land in T7.
-EXPECTED_TOOLS = 37
-EXPECTED_RESOURCES = 7
-EXPECTED_PROMPTS = 7
+SRC = Path(__file__).resolve().parents[2] / "src"
 
 _NAME_RE = re.compile(r"^argocd_[a-z]+(_[a-z]+)+$")
 

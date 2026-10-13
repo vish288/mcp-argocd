@@ -15,6 +15,8 @@ import pytest
 
 from mcp_argocd.servers.argocd import mcp
 
+from ._expected import EXPECTED_PROMPTS, EXPECTED_RESOURCES, EXPECTED_TOOLS
+
 ROOT = Path(__file__).resolve().parents[2]
 README = (ROOT / "README.md").read_text()
 AGENTS = (ROOT / "AGENTS.md").read_text()
@@ -34,24 +36,27 @@ async def registered():
     return tools, resources, prompts
 
 
+_TAGLINE = f"{EXPECTED_TOOLS} tools, {EXPECTED_RESOURCES} resources, and {EXPECTED_PROMPTS} prompts"
+
+
 def test_readme_counts():
-    assert "## Tools (37)" in README
-    assert "## Resources (7)" in README
-    assert "## Prompts (7)" in README
+    assert f"## Tools ({EXPECTED_TOOLS})" in README
+    assert f"## Resources ({EXPECTED_RESOURCES})" in README
+    assert f"## Prompts ({EXPECTED_PROMPTS})" in README
 
 
 def test_agents_counts():
-    assert "37 tools, 7 resources, and 7 prompts" in AGENTS
-    assert "## Tool Categories (37)" in AGENTS
+    assert _TAGLINE in AGENTS
+    assert f"## Tool Categories ({EXPECTED_TOOLS})" in AGENTS
     total = sum(int(m) for m in re.findall(r"^\|[^|]+\|\s*(\d+)\s*\|", AGENTS, re.M))
-    assert total == 37
+    assert total == EXPECTED_TOOLS
 
 
 def test_llms_full_counts():
-    assert "37 tools, 7 resources, and 7 prompts" in LLMS_FULL
-    assert "## Tools (37)" in LLMS_FULL
+    assert _TAGLINE in LLMS_FULL
+    assert f"## Tools ({EXPECTED_TOOLS})" in LLMS_FULL
     category_sum = sum(int(n) for n in re.findall(r"^### .+ \((\d+)\)$", LLMS_FULL, re.M))
-    assert category_sum == 37
+    assert category_sum == EXPECTED_TOOLS
 
 
 def test_server_json_description():
