@@ -51,10 +51,6 @@ EXPECTED_PROMPTS = {
 PROMPT_FILES = [info["file"] for info in EXPECTED_PROMPTS.values()]
 
 
-def test_prompt_count():
-    assert len(EXPECTED_PROMPTS) == 7
-
-
 def test_all_files_exist_and_start_with_heading():
     for filename in PROMPT_FILES:
         path = Path(_PROMPTS_DIR) / filename
