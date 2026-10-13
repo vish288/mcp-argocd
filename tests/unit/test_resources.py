@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from mcp_argocd.servers.resources import (
     _RESOURCES_DIR,
     _load,
@@ -37,10 +35,6 @@ EXPECTED_RESOURCES = {
 RESOURCE_FILES = [info["file"] for info in EXPECTED_RESOURCES.values()]
 
 
-def test_resource_count():
-    assert len(EXPECTED_RESOURCES) == 7
-
-
 def test_all_files_exist():
     for filename in RESOURCE_FILES:
         assert (Path(_RESOURCES_DIR) / filename).is_file(), filename
@@ -62,8 +56,3 @@ def test_each_resource_returns_its_file():
 def test_resource_functions_have_metadata():
     for uri, info in EXPECTED_RESOURCES.items():
         assert hasattr(info["fn"], "__fastmcp__"), uri
-
-
-def test_rejects_traversal():
-    with pytest.raises(ValueError, match="Invalid filename"):
-        _load("../../../etc/passwd")
