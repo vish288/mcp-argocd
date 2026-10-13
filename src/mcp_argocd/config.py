@@ -2,11 +2,74 @@
 
 from __future__ import annotations
 
+import logging
 import os
 from dataclasses import dataclass, field
 
 _FALSEY = ("false", "0", "no")
 _TRUTHY = ("true", "1", "yes")
+
+# Read-only switch values: stripped and case-insensitive. Only a clearly falsy
+# value unlocks; a truthy value or any unrecognised non-empty value locks (fail safe),
+# the latter with a WARNING so a deployer sees the typo did not silently unlock writes.
+_RO_TRUTHY = frozenset({"1", "true", "yes", "on"})
+_RO_FALSEY = frozenset({"", "0", "false", "no", "off"})
+
+# Shared across the mcp-* servers so one deployer-set env var locks any of them
+# read-only. The per-server alias (ARGOCD_READ_ONLY) stays; either being truthy wins.
+_SHARED_READ_ONLY = "MCP_READ_ONLY"
+
+_log = logging.getLogger(__name__)
+
+
+def _ro_value(name: str) -> str | None:
+    """A read-only source's value, stripped; ``None`` when the var is unset."""
+    raw = os.getenv(name)
+    return raw.strip() if raw is not None else None
+
+
+def _locks(value: str) -> bool:
+    """Whether a source value locks: anything not clearly falsy (truthy or unrecognised)."""
+    return value.lower() not in _RO_FALSEY
+
+
+def read_only_sources(alias: str) -> list[str]:
+    """Env var names (shared first, then the per-server alias) whose value locks read-only."""
+    return [
+        name
+        for name in (_SHARED_READ_ONLY, alias)
+        if (value := _ro_value(name)) is not None and _locks(value)
+    ]
+
+
+def _read_only(alias: str) -> bool:
+    """Resolve read-only as ``locks(MCP_READ_ONLY) or locks(<alias>)``.
+
+    Any truthy or unrecognised-non-empty source locks the server; a clearly falsy value is
+    never an override — it is the default. When locked, log one WARNING per source that did
+    not contribute: a falsy value (it had no effect) or an unrecognised value (it locked by
+    failing safe, not because it was understood).
+    """
+    locked = bool(read_only_sources(alias))
+    if locked:
+        for name in (_SHARED_READ_ONLY, alias):
+            value = _ro_value(name)
+            if value is None:
+                continue
+            low = value.lower()
+            if low in _RO_FALSEY:
+                _log.warning(
+                    "read-only is locked on; ignoring %s=%s (a falsy value cannot unlock it)",
+                    name,
+                    value,
+                )
+            elif low not in _RO_TRUTHY:
+                _log.warning(
+                    "read-only: locking on unrecognised %s=%s (anything but a falsy value locks)",
+                    name,
+                    value,
+                )
+    return locked
 
 
 def _server_url() -> str:
@@ -42,7 +105,7 @@ class ArgoCDConfig:
             or os.getenv("ARGOCD_AUTH_TOKEN")
             or os.getenv("ARGOCD_API_TOKEN", "")
         )
-        read_only = os.getenv("ARGOCD_READ_ONLY", "false").lower() in _TRUTHY
+        read_only = _read_only("ARGOCD_READ_ONLY")
         timeout = int(os.getenv("ARGOCD_TIMEOUT", "30"))
         ssl_verify = os.getenv("ARGOCD_SSL_VERIFY", "true").lower() not in _FALSEY
         if os.getenv("ARGOCD_INSECURE", "").lower() in _TRUTHY:

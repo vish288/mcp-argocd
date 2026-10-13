@@ -28,6 +28,12 @@
       "description": "Restrict to read-only operations (true/false)",
       "required": false,
       "sensitive": false
+    },
+    {
+      "name": "MCP_READ_ONLY",
+      "description": "Shared read-only switch across the mcp-* servers; same effect as ARGOCD_READ_ONLY (true/false)",
+      "required": false,
+      "sensitive": false
     }
   ]
 }

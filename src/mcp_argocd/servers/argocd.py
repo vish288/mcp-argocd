@@ -22,7 +22,7 @@ from mcp.types import TextContent
 from pydantic import Field
 
 from ..client import ArgoCDClient
-from ..config import ArgoCDConfig
+from ..config import ArgoCDConfig, read_only_sources
 from ..exceptions import (
     ArgoCDApiError,
     ArgoCDConnectionError,
@@ -71,6 +71,31 @@ DESTRUCTIVE_IDEMPOTENT = {
 
 _log = logging.getLogger(__name__)
 
+_LOCK_SUFFIX = (
+    " This deployment is locked read-only: write tools are not listed and cannot be"
+    " enabled from the client."
+)
+
+
+def _lock_read_only(server: FastMCP, *, sources: list[str] | None = None) -> None:
+    """Hide write tools and write-workflow prompts from a read-only server, for good.
+
+    fastmcp 4.0.10: ``disable`` appends a ``Visibility(False)`` transform, so matching
+    components (any tool or prompt carrying the ``write`` tag) drop out of ``tools/list``
+    and ``prompts/list`` and ``tools/call`` on them returns a "Unknown tool" error. There
+    is no client-reachable path to re-enable them — fastmcp's re-enable APIs are server
+    code only, and this server never calls them (a src-scan test enforces that). The
+    ``_check_write`` guard stays as defence in depth. Idempotent off the appended
+    instructions sentence so a re-entered lifespan (tests) does not stack visibility
+    transforms — no separate module flag to reset.
+    """
+    if _LOCK_SUFFIX in (server.instructions or ""):
+        return
+    server.disable(tags={"write"})
+    server.instructions = (server.instructions or "") + _LOCK_SUFFIX
+    named = f" ({', '.join(sources)})" if sources else ""
+    _log.info("read-only: LOCKED%s — write tools and prompts hidden", named)
+
 
 @asynccontextmanager
 async def lifespan(server: FastMCP) -> AsyncIterator[dict[str, Any]]:
@@ -78,7 +103,11 @@ async def lifespan(server: FastMCP) -> AsyncIterator[dict[str, Any]]:
     config.validate()
     pkg_version = version("mcp-argocd")
     _log.info("mcp-argocd %s starting", pkg_version)
-    _log.info("Argo CD: %s (read-only: %s)", config.url, config.read_only)
+    if config.read_only:
+        _log.info("Argo CD: %s", config.url)
+        _lock_read_only(server, sources=read_only_sources("ARGOCD_READ_ONLY"))
+    else:
+        _log.info("Argo CD: %s (read-only: %s)", config.url, config.read_only)
     client = ArgoCDClient(config)
     try:
         yield {"client": client, "config": config}
@@ -225,7 +254,10 @@ def _api_hint(error: ArgoCDApiError) -> str | None:
 def _err(error: Exception) -> dict[str, Any]:
     detail: dict[str, Any] = {"error": str(error)}
     if isinstance(error, ArgoCDWriteDisabledError):
-        detail["hint"] = "Server is in read-only mode. Set ARGOCD_READ_ONLY=false to enable writes."
+        detail["hint"] = (
+            "This server is deployed read-only; writes cannot be enabled from the client. "
+            "Ask the deployer."
+        )
     elif isinstance(error, ArgoCDConnectionError):
         detail["hint"] = (
             "Could not reach the Argo CD API. Check ARGOCD_URL, that the server is up, and that "
