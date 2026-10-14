@@ -1,7 +1,7 @@
 [project]
 name = "mcp-argocd"
 version = "0.5.0"
-description = "Argo CD MCP server for the MCP 2026-07-28 specification (MCP 2.0): application status, sync, rollback, drift, logs, ApplicationSets, and clusters for assistants"
+description = "Argo CD MCP server for the MCP 2026-07-28 specification (MCP 2.0): application status, sync, rollback, drift, logs, ApplicationSets and clusters for assistants. Runs with writes, or locked read-only via MCP_READ_ONLY"
 readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.10"
@@ -28,6 +28,8 @@ keywords = [
     "vscode",
     "windsurf",
     "fastmcp",
+    "read-only",
+    "read-only-mode",
 ]
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -90,7 +92,7 @@ select = ["E", "F", "B", "W", "I", "N", "UP", "S", "C4", "EM", "ISC"]
 ignore = []
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["S101", "S105", "S106"]
+"tests/**" = ["S101", "S105", "S106", "S104"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

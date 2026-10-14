@@ -10,9 +10,10 @@ MCP server that wraps the Argo CD REST API. Works with Argo CD 3.3+ on any insta
 - **License**: MIT
 - **Protocol**: MCP 2026-07-28 (MCP 2.0); compatible with 2025-11-25 clients; built on FastMCP 4.x
 - **Transport**: stdio (default), streamable-http (recommended for remote), SSE (deprecated by the 2026-07-28 spec)
+- **Read-only mode**: `MCP_READ_ONLY=true` (or `ARGOCD_READ_ONLY=true`) hides the 9 write tools and write-workflow prompts for the life of the process; any non-false value locks; set it in the deployer's env
 - **Registry**: `io.github.vish288/mcp-argocd`
 - **Required env vars**: `ARGOCD_URL` (base URL including any path prefix), `ARGOCD_TOKEN` (bearer token)
-- **Optional env vars**: `MCP_READ_ONLY` / `ARGOCD_READ_ONLY` (lock read-only), `ARGOCD_TIMEOUT` (request timeout), `ARGOCD_SSL_VERIFY` (SSL verification), `ARGOCD_APP_NAMESPACE` (default appNamespace)
+- **Optional env vars**: `MCP_READ_ONLY` / `ARGOCD_READ_ONLY`, `ARGOCD_HTTP_BEARER_TOKEN` (HTTP bind outside loopback), `ARGOCD_TIMEOUT` (request timeout), `ARGOCD_SSL_VERIFY` (SSL verification), `ARGOCD_APP_NAMESPACE` (default appNamespace)
 
 ## Documentation
 
@@ -33,8 +34,9 @@ MCP server that wraps the Argo CD REST API. Works with Argo CD 3.3+ on any insta
 |----------|----------|---------|-------------|
 | `ARGOCD_URL` | Yes | - | Base URL including any path prefix (e.g. `https://argocd.example.com`). Also reads `ARGOCD_SERVER`. |
 | `ARGOCD_TOKEN` | Yes | - | Bearer token. Also reads `ARGOCD_AUTH_TOKEN` and `ARGOCD_API_TOKEN`. |
-| `ARGOCD_READ_ONLY` | No | `false` | Any value other than `false`/`0`/`no`/`off`/empty locks the server read-only: the 9 write tools are not listed and are refused before any API call |
-| `MCP_READ_ONLY` | No | `false` | Same as `ARGOCD_READ_ONLY`; shared name across the mcp-* servers. Either being truthy locks the server read-only, and nothing can turn it back off at runtime |
+| `MCP_READ_ONLY` | No | `false` | Shared name across the mcp-* servers. Any value other than `false`/`0`/`no`/`off`/empty locks the server read-only: the 9 write tools and write-workflow prompts are not listed, and nothing can turn it back off at runtime |
+| `ARGOCD_READ_ONLY` | No | `false` | Per-server alias for `MCP_READ_ONLY`; either one locks the server read-only. `--read-only` can only raise the lock |
+| `ARGOCD_HTTP_BEARER_TOKEN` | No | - | Bearer token (min 16 chars) required to bind an HTTP transport to a non-loopback host; clients send `Authorization: Bearer <token>` |
 | `ARGOCD_TIMEOUT` | No | `30` | Request timeout in seconds |
 | `ARGOCD_SSL_VERIFY` | No | `true` | Set to `false` to skip SSL verification (`ARGOCD_INSECURE=true` is an alias) |
 | `ARGOCD_APP_NAMESPACE` | No | - | Default `appNamespace` for apps-in-any-namespace installs |
@@ -204,7 +206,7 @@ through untyped, and a typed schema is opt-in per tool via `output_schema=`.
 ## Security Considerations
 
 - **Token scope**: use the minimum RBAC the workflow needs; a read-only role needs `applications, get` and `logs, get`.
-- **Read-only mode**: set `MCP_READ_ONLY=true` (or the `ARGOCD_READ_ONLY` alias, or `--read-only`) to lock the server read-only. The 9 write tools and write-workflow prompts are not listed and cannot be enabled from the client; a falsy value never unlocks it. Set it in a launch the deployer owns (Claude Code `managed-mcp.json` `env`, a container/k8s env).
+- **Read-only mode**: set `MCP_READ_ONLY=true` (or `ARGOCD_READ_ONLY=true`) in the launch you control and the server starts locked: the 9 write tools and the write-workflow prompts are not listed, a call to one returns "Unknown tool", and the guard refuses any write that still reaches it. Nothing lifts the lock at runtime — not a `false` from another source, not a `.env` file, not tool arguments; any value other than `false`/`0`/`no`/`off`/empty locks, and `--read-only` can only raise it. The lock is only as strong as the launch: set it where users cannot edit it (a managed MCP config such as Claude Code `managed-mcp.json`, a container, k8s or systemd env, or a hosted HTTP deployment). A user who starts the server themselves controls its environment. Pair it with a read-only Argo CD RBAC role (`applications, get`; `logs, get`).
 - **SSL verification**: `true` by default. Only disable for self-signed certificates in trusted networks.
 - **Secret scrubbing**: repository, cluster, and project payloads are scrubbed of credentials, cluster `config`, and role `jwtTokens` — even with `full=True`. `has_credentials` reports whether repo credentials exist.
 - **MCP tool annotations**: every tool declares `readOnlyHint`, `destructiveHint`, and `idempotentHint` for client-side permission prompts.

@@ -130,11 +130,16 @@ returns a user message (workflow template) plus an assistant acknowledgment.
 |---|---|---|---|
 | `ARGOCD_URL` | yes | — | Base URL including any path prefix; trailing slash stripped; `/api/v1` appended. Falls back to `ARGOCD_SERVER` |
 | `ARGOCD_TOKEN` | yes | — | Bearer token; also reads `ARGOCD_AUTH_TOKEN`, `ARGOCD_API_TOKEN` |
-| `ARGOCD_READ_ONLY` | no | `false` | Any value other than `false`/`0`/`no`/`off`/empty locks the server read-only: the 9 write tools are not listed and are refused before any API call |
-| `MCP_READ_ONLY` | no | `false` | Same as `ARGOCD_READ_ONLY`; shared name across the mcp-* servers. Either being truthy locks read-only, and nothing turns it off at runtime |
+| `MCP_READ_ONLY` | no | `false` | Shared name across the mcp-* servers. Any value other than `false`/`0`/`no`/`off`/empty locks the server read-only: the 9 write tools and write-workflow prompts are not listed, and nothing can turn it back off at runtime |
+| `ARGOCD_READ_ONLY` | no | `false` | Per-server alias for `MCP_READ_ONLY`; either one locks the server read-only. `--read-only` can only raise the lock |
+| `ARGOCD_HTTP_BEARER_TOKEN` | no | — | Bearer token (min 16 chars) required to bind an HTTP transport to a non-loopback host; clients send `Authorization: Bearer` |
 | `ARGOCD_TIMEOUT` | no | `30` | Request timeout in seconds |
 | `ARGOCD_SSL_VERIFY` | no | `true` | `false`/`0`/`no` skips verification; `ARGOCD_INSECURE=true` is an alias |
 | `ARGOCD_APP_NAMESPACE` | no | — | Default `appNamespace` for apps-in-any-namespace installs |
+
+HTTP transports add a network layer: Host/Origin protection is not authentication, so binding to a
+non-loopback host requires `ARGOCD_HTTP_BEARER_TOKEN` (min 16 chars, constant-time compared via a
+`TokenVerifier` subclass). The CLI refuses to start on a non-loopback host without it.
 
 CLI flags override env: `--argocd-url`, `--read-only`, `--insecure`, plus
 `--transport {stdio,sse,streamable-http}` with `--host` and `--port` for non-stdio transports.
