@@ -164,8 +164,7 @@ gh workflow run release.yml -f bump=minor -f dry_run=true  # preview changelog, 
    API with `GITHUB_TOKEN` and **no** `author`/`committer`, so GitHub signs it as
    `github-actions[bot]` (Verified); the job then fails unless `verification.verified` is true.
    `main` and the tag ref are moved with `RELEASE_PAT` (a fast-forward that fails if `main` moved
-   mid-run; the PAT bypasses the ruleset). `release.yml` then dispatches `publish.yml`, and the
-   PAT's tag push is a duplicate that no-ops.
+   mid-run; the PAT bypasses the ruleset). `release.yml` then dispatches `publish.yml`, and the PAT's tag push no longer triggers publish (publish.yml is dispatch-only).
 2. `publish.yml` runs as split, idempotent jobs (`status → build → pypi → github-release →
    registry`): each target is checked first and written only when not already done, so PyPI, the
    GitHub release and the MCP Registry each complete independently and recoverably.
