@@ -164,10 +164,16 @@ gh workflow run release.yml -f bump=minor -f dry_run=true  # preview changelog, 
    API with `GITHUB_TOKEN` and **no** `author`/`committer`, so GitHub signs it as
    `github-actions[bot]` (Verified); the job then fails unless `verification.verified` is true.
    `main` and the tag ref are moved with `RELEASE_PAT` (a fast-forward that fails if `main` moved
-   mid-run; the PAT is what bypasses the ruleset and triggers `publish.yml`).
-2. `publish.yml` (on a `v*` tag) — builds the wheel, validates `server.json` with a pinned,
-   sha256-verified `mcp-publisher`, publishes to PyPI (trusted publishing, environment `pypi`),
-   creates the GitHub Release, then publishes to the MCP Registry.
+   mid-run; the PAT bypasses the ruleset). `release.yml` then dispatches `publish.yml`, and the
+   PAT's tag push is a duplicate that no-ops.
+2. `publish.yml` runs as split, idempotent jobs (`status → build → pypi → github-release →
+   registry`): each target is checked first and written only when not already done, so PyPI, the
+   GitHub release and the MCP Registry each complete independently and recoverably.
+3. Recovery of a failed publish is `gh run rerun <id> --failed` or `gh workflow run publish.yml
+   --ref refs/tags/vX.Y.Z`; both are no-ops for targets that are already done.
+4. `reconcile.yml` does this unattended — about 5 min after a failed publish run, then every 6 h on
+   a schedule — scanning the last three tags and dispatching `publish.yml` as needed, capped at 8
+   failed attempts per tag before it asks for a human.
 
 Rules: never edit the `pyproject.toml` version directly; never create tags manually; use
 Conventional Commits (`feat:`, `fix:`, `docs:`, …).
