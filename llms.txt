@@ -10,9 +10,10 @@ MCP server that wraps the Argo CD REST API. Works with Argo CD 3.3+ on any insta
 - **License**: MIT
 - **Protocol**: MCP 2026-07-28 (MCP 2.0); compatible with 2025-11-25 clients; built on FastMCP 4.x
 - **Transport**: stdio (default), streamable-http (recommended for remote), SSE (deprecated by the 2026-07-28 spec)
+- **Read-only mode**: `MCP_READ_ONLY=true` (or `ARGOCD_READ_ONLY=true`) hides the 9 write tools and write-workflow prompts for the life of the process; any non-false value locks; set it in the deployer's env
 - **Registry**: `io.github.vish288/mcp-argocd`
 - **Required env vars**: `ARGOCD_URL` (base URL including any path prefix), `ARGOCD_TOKEN` (bearer token)
-- **Optional env vars**: `MCP_READ_ONLY` / `ARGOCD_READ_ONLY` (lock read-only), `ARGOCD_TIMEOUT` (request timeout), `ARGOCD_SSL_VERIFY` (SSL verification), `ARGOCD_APP_NAMESPACE` (default appNamespace)
+- **Optional env vars**: `MCP_READ_ONLY` / `ARGOCD_READ_ONLY`, `ARGOCD_HTTP_BEARER_TOKEN` (HTTP bind outside loopback), `ARGOCD_TIMEOUT` (request timeout), `ARGOCD_SSL_VERIFY` (SSL verification), `ARGOCD_APP_NAMESPACE` (default appNamespace)
 
 ## Documentation
 
