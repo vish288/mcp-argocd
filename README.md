@@ -9,7 +9,7 @@
 
 <!-- mcp-name: io.github.vish288/mcp-argocd -->
 
-**mcp-argocd** is a [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) server for the Argo CD REST API. It gives AI assistants **37 tools**, **7 resources**, and **7 prompts** to triage application status, sync, roll back, inspect drift, read logs, and manage ApplicationSets, clusters, projects, and repositories. Works with Claude Desktop, Claude Code, Cursor, Windsurf, VS Code Copilot, and any MCP-compatible client.
+**mcp-argocd** is a [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) server for the Argo CD REST API. It gives AI assistants **37 tools**, **7 resources**, and **7 prompts** to triage application status, sync, roll back, inspect drift, read logs, and manage ApplicationSets, clusters, projects, and repositories. Works with Claude Desktop, Claude Code, Cursor, Windsurf, VS Code Copilot, and any MCP-compatible client. Runs in one of two modes: with writes, or locked read-only (`MCP_READ_ONLY=true`) so the 9 write tools are never offered to the model.
 
 Works with Argo CD 3.3+ (any install: OSS, Akuity, OpenShift GitOps). Needs an API token, no cluster access.
 
@@ -18,6 +18,11 @@ Supports the MCP 2026-07-28 specification, often called MCP 2.0, and stays compa
 Built with [FastMCP](https://github.com/jlowin/fastmcp) 4.x, [httpx](https://www.python-httpx.org/), and [Pydantic](https://docs.pydantic.dev/).
 
 **Install:** `uvx mcp-argocd` | [PyPI](https://pypi.org/project/mcp-argocd/) | [MCP Registry](https://registry.modelcontextprotocol.io) | [Changelog](https://github.com/vish288/mcp-argocd/releases)
+
+```bash
+uvx mcp-argocd                          # with writes
+MCP_READ_ONLY=true uvx mcp-argocd       # locked read-only: write tools are not listed
+```
 
 ## 1-Click Installation
 
@@ -36,13 +41,18 @@ Built with [FastMCP](https://github.com/jlowin/fastmcp) 4.x, [httpx](https://www
 ### Claude Code
 
 ```bash
-claude mcp add argocd -- uvx mcp-argocd
+# with writes
+claude mcp add argocd -e ARGOCD_URL=https://argocd.example.com -e ARGOCD_TOKEN=<token> -- uvx mcp-argocd
+# locked read-only
+claude mcp add argocd -e MCP_READ_ONLY=true -e ARGOCD_URL=https://argocd.example.com -e ARGOCD_TOKEN=<token> -- uvx mcp-argocd
 ```
 
 ### Windsurf & IntelliJ
 
 **Windsurf:** Add to `~/.codeium/windsurf/mcp_config.json`
 **IntelliJ:** Add to `Settings | Tools | MCP Servers`
+
+Remove `MCP_READ_ONLY` to allow writes.
 
 ```json
 {
@@ -52,7 +62,8 @@ claude mcp add argocd -- uvx mcp-argocd
       "args": ["mcp-argocd"],
       "env": {
         "ARGOCD_URL": "https://argocd.example.com",
-        "ARGOCD_TOKEN": "<token>"
+        "ARGOCD_TOKEN": "<token>",
+        "MCP_READ_ONLY": "true"
       }
     }
   }
@@ -61,7 +72,44 @@ claude mcp add argocd -- uvx mcp-argocd
 
 ### Gemini CLI
 
-The repo ships `gemini-extension.json`; install it with the Gemini CLI extension flow.
+The repo ships `gemini-extension.json`; install it with the Gemini CLI extension flow, or add it directly:
+
+```bash
+# with writes
+gemini mcp add -s user -e ARGOCD_URL=https://argocd.example.com -e ARGOCD_TOKEN=<token> argocd uvx mcp-argocd
+# locked read-only
+gemini mcp add -s user -e MCP_READ_ONLY=true -e ARGOCD_URL=https://argocd.example.com -e ARGOCD_TOKEN=<token> argocd uvx mcp-argocd
+```
+
+### VS Code
+
+Add to `.vscode/mcp.json`. Remove `MCP_READ_ONLY` to allow writes.
+
+```json
+{
+  "servers": {
+    "argocd": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": ["mcp-argocd"],
+      "env": {
+        "ARGOCD_URL": "https://argocd.example.com",
+        "ARGOCD_TOKEN": "<token>",
+        "MCP_READ_ONLY": "true"
+      }
+    }
+  }
+}
+```
+
+### Codex
+
+```bash
+# with writes
+codex mcp add argocd --env ARGOCD_URL=https://argocd.example.com --env ARGOCD_TOKEN=<token> -- uvx mcp-argocd
+# locked read-only
+codex mcp add argocd --env MCP_READ_ONLY=true --env ARGOCD_URL=https://argocd.example.com --env ARGOCD_TOKEN=<token> -- uvx mcp-argocd
+```
 
 ### pip / uv
 
@@ -69,6 +117,8 @@ The repo ships `gemini-extension.json`; install it with the Gemini CLI extension
 uvx mcp-argocd            # run without installing
 pip install mcp-argocd    # or install into an environment
 ```
+
+Drop `MCP_READ_ONLY` to allow writes. On a shared or hosted server put it in the deployer's env, not the client config.
 
 </details>
 
@@ -78,8 +128,9 @@ pip install mcp-argocd    # or install into an environment
 |----------|----------|---------|-------------|
 | `ARGOCD_URL` | Yes | - | Base URL including any path prefix. Also reads `ARGOCD_SERVER`. |
 | `ARGOCD_TOKEN` | Yes | - | Bearer token. Also reads `ARGOCD_AUTH_TOKEN`, `ARGOCD_API_TOKEN`. |
-| `ARGOCD_READ_ONLY` | No | `false` | Any value other than `false`/`0`/`no`/`off`/empty locks the server read-only: the 9 write tools are not listed and are refused before any API call |
-| `MCP_READ_ONLY` | No | `false` | Same as `ARGOCD_READ_ONLY`; shared name across the mcp-* servers. Either being truthy locks the server read-only, and nothing can turn it back off at runtime |
+| `MCP_READ_ONLY` | No | `false` | Shared name across the mcp-* servers. Any value other than `false`/`0`/`no`/`off`/empty locks the server read-only: the 9 write tools and write-workflow prompts are not listed, and nothing can turn it back off at runtime |
+| `ARGOCD_READ_ONLY` | No | `false` | Per-server alias for `MCP_READ_ONLY`; either one locks the server read-only. `--read-only` can only raise the lock |
+| `ARGOCD_HTTP_BEARER_TOKEN` | No | - | Bearer token (min 16 chars) required to bind an HTTP transport to a non-loopback host; clients send `Authorization: Bearer <token>` |
 | `ARGOCD_TIMEOUT` | No | `30` | Request timeout in seconds |
 | `ARGOCD_SSL_VERIFY` | No | `true` | `false` skips SSL verification (`ARGOCD_INSECURE=true` is an alias) |
 | `ARGOCD_APP_NAMESPACE` | No | - | Default `appNamespace` for apps-in-any-namespace installs |
@@ -246,7 +297,7 @@ The server provides MCP prompts — multi-tool workflow templates clients surfac
 ## Security Considerations
 
 - **Token scope**: use the minimum RBAC the workflow needs. A read-only role needs `applications, get` and `logs, get`.
-- **Read-only mode**: set `MCP_READ_ONLY=true` (or the `ARGOCD_READ_ONLY` alias, or `--read-only`) to lock the server read-only. The 9 write tools and the write-workflow prompts are not listed and cannot be enabled from the client; a falsy value never unlocks it. Set it in a launch the deployer owns (Claude Code `managed-mcp.json` `env`, a container/k8s env), so no user can override it.
+- **Read-only mode**: set `MCP_READ_ONLY=true` (or `ARGOCD_READ_ONLY=true`) in the launch you control and the server starts locked: the 9 write tools and the write-workflow prompts are not listed, a call to one returns "Unknown tool", and the guard refuses any write that still reaches it. Nothing lifts the lock at runtime — not a `false` from another source, not a `.env` file, not tool arguments; any value other than `false`/`0`/`no`/`off`/empty locks, and `--read-only` can only raise it. The lock is only as strong as the launch: set it where users cannot edit it (a managed MCP config such as Claude Code `managed-mcp.json`, a container, k8s or systemd env, or a hosted HTTP deployment). A user who starts the server themselves controls its environment. Pair it with a read-only Argo CD RBAC role (`applications, get`; `logs, get`).
 - **SSL verification**: on by default. Disable only for self-signed certificates in trusted networks.
 - **Secret scrubbing**: repository, cluster, and project payloads are scrubbed of credentials, cluster `config`, and role `jwtTokens`, even with `full=True`.
 - **MCP tool annotations**: every tool declares `readOnlyHint`, `destructiveHint`, and `idempotentHint`.
@@ -275,6 +326,33 @@ uvx mcp-argocd --transport sse                   # deprecated; prints a warning
 uvx mcp-argocd --read-only --insecure
 ```
 
+An HTTP transport serves every tool, with the owner's Argo CD token, to anyone who reaches the
+port. Host/Origin protection is not authentication, so binding to a non-loopback host requires a
+bearer token: set `ARGOCD_HTTP_BEARER_TOKEN` (min 16 chars; clients send `Authorization: Bearer
+<token>`). The server refuses to start on a non-loopback host without it.
+
+```bash
+ARGOCD_HTTP_BEARER_TOKEN=$(openssl rand -hex 32) \
+  uvx mcp-argocd --transport streamable-http --host 0.0.0.0 --port 9000
+```
+
+## Docker
+
+The image defaults to locked read-only (`MCP_READ_ONLY=true`); pass `-e MCP_READ_ONLY=false` to allow writes.
+
+```bash
+docker build -t mcp-argocd .
+
+# stdio, locked read-only (the image default)
+docker run --rm -i \
+  -e ARGOCD_URL=https://argocd.example.com \
+  -e ARGOCD_TOKEN=<token> \
+  mcp-argocd
+```
+
+The image runs as a non-root user and defaults to stdio; pass
+`--transport streamable-http --host 0.0.0.0` (with `ARGOCD_HTTP_BEARER_TOKEN`) to serve over HTTP.
+
 ## FAQ
 
 **Does mcp-argocd support MCP 2026-07-28 (MCP 2.0)?** Yes. It supports the MCP 2026-07-28 specification, often called MCP 2.0, and stays compatible with 2025-11-25 clients.
@@ -285,7 +363,7 @@ uvx mcp-argocd --read-only --insecure
 
 **Does it need kubectl or cluster credentials?** No. It talks to the Argo CD API over HTTPS with a bearer token. It never touches the cluster directly.
 
-**Is it safe for read-only use?** Yes. Set `MCP_READ_ONLY=true` (or the `ARGOCD_READ_ONLY` alias). The server hides all nine write tools and refuses them before any API call, and nothing can turn it back off at runtime.
+**Can I run mcp-argocd read-only so the assistant cannot sync or delete anything?** Yes. Start it with `MCP_READ_ONLY=true` (or `ARGOCD_READ_ONLY=true`). The 9 write tools and the write-workflow prompts are then not listed at all, so the model never sees them; a call to one returns "Unknown tool", and nothing can turn writes back on while the process runs. Set it in a launch you control — a managed MCP config, a container or systemd env, or a hosted deployment — because a user who starts the server themselves can start it without the variable.
 
 **Which token does it need?** It needs a bearer token in `ARGOCD_TOKEN`. Generate one from a local account with the `apiKey` capability, or use a project-role token. It also reads `ARGOCD_AUTH_TOKEN` and `ARGOCD_API_TOKEN`.
 
