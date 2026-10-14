@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.5.1] - 2026-10-14
+
+### Documentation
+- docs(read-only): surface both modes, add HTTP bearer gate and Dockerfile (331b995)
+
+### Other
+- ci(publish): resilient, recoverable publish pipeline (d4e3f11)
+
+
 ### Notes
 - Source distributions up to and including 0.5.0 accidentally bundled `mcp-publisher.tar.gz` (about 7.3 MB), the MCP Registry publisher binary that the publish workflow downloaded into the build tree before `uv build`. Wheels were never affected and `pip`/`uv` install the wheel, so there is no runtime impact and those versions are not yanked. The bundled file is a third-party build from modelcontextprotocol/registry (MIT, transitioning to Apache-2.0 per its LICENSE) and was redistributed without its licence text. From this release the build asserts that the sdist contains only tracked files.
 
