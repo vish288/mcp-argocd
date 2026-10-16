@@ -177,10 +177,9 @@ gh workflow run release.yml -f bump=minor -f dry_run=true  # preview changelog, 
 Rules: never edit the `pyproject.toml` version directly; never create tags manually; use
 Conventional Commits (`feat:`, `fix:`, `docs:`, …).
 
-Release commits on `main` are Verified, but PR commits merged by GitHub's rebase-only policy show
-as unsigned: GitHub rewrites each rebased commit with a new committer and cannot sign it as a
-system user. That is by design — PR review plus the required `lint`/`test` checks are the
-integrity control; only the release commit is signed.
+PR commits land signed via a local signed rebase + fast-forward push of the branch to `main`,
+never GitHub's rebase-merge, squash, or merge-commit buttons; the release commit is GitHub-signed
+(`github-actions[bot]`, Verified). `main` requires signed commits and linear history.
 
 ## Documentation Freshness (mandatory)
 
