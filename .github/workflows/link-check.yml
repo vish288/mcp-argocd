@@ -6,4 +6,4 @@ on:
   workflow_dispatch:
 jobs:
   links:
-    uses: vish288/.github/.github/workflows/link-check.yml@d28227beef76ee367bb565ccab605383b06d7197
+    uses: vish288/.github/.github/workflows/link-check.yml@81cb5c053ebd2d1ae7897704dd8c35b1a925daf1
