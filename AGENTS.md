@@ -25,7 +25,7 @@ deprecations do not affect it.
 - **Helpers**: `src/mcp_argocd/servers/_helpers.py` — file loader with traversal guard, `_scrub` over one `SECRET_KEYS` tuple, `_page`, `_split_app_name`, `_parse_resource_selector`, `_truncate`, `_terminal`
 - **Config**: `src/mcp_argocd/config.py` — `ArgoCDConfig` built from env vars
 - **Exceptions**: `src/mcp_argocd/exceptions.py` — `ArgoCDError` base; `ArgoCDApiError` (with `grpc_code`), `ArgoCDAuthError`, `ArgoCDNotFoundError`, `ArgoCDConflictError`, `ArgoCDWriteDisabledError`, `ArgoCDTimeoutError`, `ArgoCDConnectionError`
-- **Tests**: `tests/` — `unit/test_tools.py`, `test_tool_contract.py`, `test_client.py`, `test_config.py`, `test_exceptions.py`, `test_helpers.py`, `test_server_assembly.py`, `test_resources.py`, `test_prompts.py`, `test_doc_parity.py`, `test_derived_artifacts.py`, plus `tests/test_links.py`. Fixtures in `tests/fixtures/` and shared fixtures in `tests/conftest.py`
+- **Tests**: `tests/` — `unit/test_tools.py`, `test_tool_contract.py`, `test_client.py`, `test_config.py`, `test_exceptions.py`, `test_helpers.py`, `test_server_assembly.py`, `test_resources.py`, `test_prompts.py`, `test_doc_parity.py`, plus `tests/test_links.py`. Fixtures in `tests/fixtures/` and shared fixtures in `tests/conftest.py`
 
 ## Development
 
@@ -152,15 +152,22 @@ exposes the token to `ps` and shell history). Set `ARGOCD_TOKEN` instead.
 
 Releases run through GitHub Actions — never bump versions manually.
 
+The six workflows (`tests`, `lint`, `link-check`, `release`, `publish`, `reconcile`) are thin
+stubs that call reusable `workflow_call` workflows in [`vish288/.github`](https://github.com/vish288/.github)
+(`uses: vish288/.github/.github/workflows/<name>.yml@v1`). The shared `scripts/ci/*.sh` and
+`scripts/derive_artifacts.py` live there too; this repo no longer carries its own copies. A CI fix
+is one PR in `vish288/.github` plus a tag bump, not a change in each server.
+
 ```bash
 gh workflow run release.yml -f version=0.1.0
 gh workflow run release.yml -f bump=minor -f dry_run=true  # preview changelog, no push
 ```
 
-1. `release.yml` (workflow_dispatch) — runs the `tests.yml` and `lint.yml` gates on the released
-   commit first (`needs: [test, lint]` via `workflow_call`), then bumps the version in
-   `pyproject.toml`, `llms-full.txt`, `server.json`; runs `scripts/derive_artifacts.py`;
-   regenerates `uv.lock`; prepends a CHANGELOG entry. The release commit is created via the GitHub
+1. `release.yml` (workflow_dispatch) — the stub forwards its inputs to the reusable `release.yml`,
+   which runs the `tests.yml` and `lint.yml` gates on the released commit first
+   (`needs: [test, lint]`), then bumps the version in `pyproject.toml`, `llms-full.txt`,
+   `server.json`; runs the shared `derive_artifacts.py`; regenerates `uv.lock`; prepends a CHANGELOG
+   entry. The release commit is created via the GitHub
    API with `GITHUB_TOKEN` and **no** `author`/`committer`, so GitHub signs it as
    `github-actions[bot]` (Verified); the job then fails unless `verification.verified` is true.
    `main` and the tag ref are moved with `RELEASE_PAT` (a fast-forward that fails if `main` moved
@@ -192,8 +199,10 @@ the same commit:
 - `AGENTS.md` — counts in intro, tool category table
 - `server.json` — description field (≤100 chars)
 
-`llms.txt` and `gemini-extension.json` are derived — run `python scripts/derive_artifacts.py`,
-never hand-edit them.
+`llms.txt` and `gemini-extension.json` are derived from `llms-full.txt` / `server.json`; the
+`release.yml` pipeline regenerates them (via `derive_artifacts.py` in `vish288/.github`). Do not
+hand-edit them. To preview locally, run the script from a `vish288/.github` checkout against this
+repo root, e.g. `LLMS_SPLIT_MARKER=$'\n## Configuration' python /path/to/.github/scripts/derive_artifacts.py`.
 
 ## Known Limitations
 
