@@ -30,7 +30,7 @@ permissions: {}
 
 jobs:
   prepare:
-    uses: vish288/.github/.github/workflows/publish-prepare.yml@027b9a9cefab437317c67711b3050a68c1a83452 # v1.0.0
+    uses: vish288/.github/.github/workflows/publish-prepare.yml@e433546a751a1b2947e0216d24fd1ad7b1bf94de # v1.1.0
     with:
       dry_run: ${{ inputs.dry_run }}
     permissions:
@@ -56,7 +56,7 @@ jobs:
           PYPI_STATE: ${{ needs.prepare.outputs.pypi }}
         run: |
           echo "- pypi: $PYPI_STATE" >> "$GITHUB_STEP_SUMMARY"
-          if [ "$FAIL_AT" = pypi ] && [ "$GITHUB_EVENT_NAME" = workflow_dispatch ] && [ "${GITHUB_RUN_ATTEMPT:-1}" = 1 ] && [ "$PYPI_STATE" != done ]; then
+          if [ "$FAIL_AT" = pypi ] && [ "$GITHUB_EVENT_NAME" = workflow_dispatch ] && [ "${GITHUB_RUN_ATTEMPT:-1}" = 1 ] && [ "$PYPI_STATE" != "done" ]; then
             echo "::error::test hook fail_at=pypi (attempt 1, state=$PYPI_STATE): failing before any write"; exit 1
           fi
       - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
@@ -68,7 +68,7 @@ jobs:
   finish:
     needs: [prepare, pypi]
     if: ${{ !cancelled() && !inputs.dry_run && (needs.prepare.outputs.pypi == 'done' || needs.pypi.result == 'success') }}
-    uses: vish288/.github/.github/workflows/publish-finish.yml@027b9a9cefab437317c67711b3050a68c1a83452 # v1.0.0
+    uses: vish288/.github/.github/workflows/publish-finish.yml@e433546a751a1b2947e0216d24fd1ad7b1bf94de # v1.1.0
     with:
       dry_run: ${{ inputs.dry_run }}
       fail_at: ${{ inputs.fail_at }}
