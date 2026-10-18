@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.5.2] - 2026-10-18
+
+### Bug Fixes
+- fix(ci): dispatch publish with RELEASE_PAT so reconcile's failure path fires (53321ac)
+- fix(ci): dispatch-only publish.yml and wait for PyPI propagation (517b714)
+- fix(ci): keep retry.sh stdout clean so captured ids aren't corrupted (d8a9d97)
+- fix(ci): create the release draft by id, no list-lookup race (105e176)
+
+### Documentation
+- docs: describe signed rebase + fast-forward landing in AGENTS.md (5d38924)
+
+### Other
+- ci: pin stubs to vish288/.github v1.0.0 (aa3e092)
+- ci: top-level PyPI publish job, explicit permissions, SHA pins (b94173a)
+- ci: pin stubs to the updated vish288/.github R1a head (aa29491)
+- ci: call vish288/.github reusable workflows via stubs (d702f1a)
+
+
 ## [0.5.1] - 2026-10-14
 
 ### Documentation
