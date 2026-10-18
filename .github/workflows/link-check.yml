@@ -1,9 +1,9 @@
 name: Link check
-# Stub -> vish288/.github. Ref flips to @v1 after R1a lands (orchestrator).
+# Stub -> vish288/.github.
 on:
   schedule:
     - cron: "0 6 * * 1" # Mondays, 06:00 UTC
   workflow_dispatch:
 jobs:
   links:
-    uses: vish288/.github/.github/workflows/link-check.yml@60e8ff1e6238f439d4428b3d0897c0d76f795354 # v1
+    uses: vish288/.github/.github/workflows/link-check.yml@027b9a9cefab437317c67711b3050a68c1a83452 # v1.0.0

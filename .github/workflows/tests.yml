@@ -1,9 +1,8 @@
 name: Tests
-# Stub: calls the reusable workflow in vish288/.github. Pinned to the R1a branch head
-# until vish288/.github v1 is tagged; the orchestrator flips the ref to @v1 after R1a lands.
+# Stub: calls the reusable workflow in vish288/.github, pinned to a release commit SHA.
 on: [push, pull_request]
 jobs:
   test:
-    uses: vish288/.github/.github/workflows/tests.yml@60e8ff1e6238f439d4428b3d0897c0d76f795354 # v1
+    uses: vish288/.github/.github/workflows/tests.yml@027b9a9cefab437317c67711b3050a68c1a83452 # v1.0.0
     with:
       coverage_min: 98

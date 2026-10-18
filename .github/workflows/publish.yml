@@ -7,7 +7,7 @@ run-name: "Publish ${{ github.ref_name }}${{ inputs.fail_at && inputs.fail_at !=
 # The pypi job is a TOP-LEVEL job here, not in a reusable workflow: PyPI trusted publishing
 # requires the OIDC job_workflow_ref to be this repo's publish.yml, which only holds when the
 # pypa/gh-action-pypi-publish job lives in this stub. publish-prepare.yml / publish-finish.yml
-# in vish288/.github carry everything around it. Ref flips to @v1 after R1a lands (orchestrator).
+# in vish288/.github carry everything around it.
 on:
   workflow_dispatch:
     inputs:
@@ -30,7 +30,7 @@ permissions: {}
 
 jobs:
   prepare:
-    uses: vish288/.github/.github/workflows/publish-prepare.yml@60e8ff1e6238f439d4428b3d0897c0d76f795354 # v1
+    uses: vish288/.github/.github/workflows/publish-prepare.yml@027b9a9cefab437317c67711b3050a68c1a83452 # v1.0.0
     with:
       dry_run: ${{ inputs.dry_run }}
     permissions:
@@ -68,7 +68,7 @@ jobs:
   finish:
     needs: [prepare, pypi]
     if: ${{ !cancelled() && !inputs.dry_run && (needs.prepare.outputs.pypi == 'done' || needs.pypi.result == 'success') }}
-    uses: vish288/.github/.github/workflows/publish-finish.yml@60e8ff1e6238f439d4428b3d0897c0d76f795354 # v1
+    uses: vish288/.github/.github/workflows/publish-finish.yml@027b9a9cefab437317c67711b3050a68c1a83452 # v1.0.0
     with:
       dry_run: ${{ inputs.dry_run }}
       fail_at: ${{ inputs.fail_at }}

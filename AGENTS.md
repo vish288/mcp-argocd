@@ -154,7 +154,7 @@ Releases run through GitHub Actions — never bump versions manually.
 
 The six workflows (`tests`, `lint`, `link-check`, `release`, `publish`, `reconcile`) are thin
 stubs that call reusable `workflow_call` workflows in [`vish288/.github`](https://github.com/vish288/.github),
-pinned by commit SHA with a `# v1` comment (`uses: vish288/.github/.github/workflows/<name>.yml@<sha> # v1`)
+pinned by commit SHA with a `# vX.Y.Z` comment (`uses: vish288/.github/.github/workflows/<name>.yml@<sha> # v1.0.0`)
 so Dependabot bumps them. The shared `scripts/ci/*.sh` and `scripts/derive_artifacts.py` live there
 too; this repo no longer carries its own copies. A CI fix is one PR in `vish288/.github` plus a tag
 bump, not a change in each server.

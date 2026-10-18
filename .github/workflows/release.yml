@@ -1,6 +1,6 @@
 name: Semantic Release
-# Stub -> vish288/.github. Owns the dispatch UI and forwards inputs. Ref flips to @v1 after
-# R1a lands (orchestrator). argocd keeps its 98% coverage gate via coverage_min.
+# Stub -> vish288/.github. Owns the dispatch UI and forwards inputs.
+# argocd keeps its 98% coverage gate via coverage_min.
 on:
   workflow_dispatch:
     inputs:
@@ -27,7 +27,7 @@ on:
         default: none
 jobs:
   release:
-    uses: vish288/.github/.github/workflows/release.yml@60e8ff1e6238f439d4428b3d0897c0d76f795354 # v1
+    uses: vish288/.github/.github/workflows/release.yml@027b9a9cefab437317c67711b3050a68c1a83452 # v1.0.0
     with:
       bump: ${{ inputs.bump }}
       version: ${{ inputs.version }}
