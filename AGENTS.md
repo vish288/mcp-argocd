@@ -153,10 +153,16 @@ exposes the token to `ps` and shell history). Set `ARGOCD_TOKEN` instead.
 Releases run through GitHub Actions — never bump versions manually.
 
 The six workflows (`tests`, `lint`, `link-check`, `release`, `publish`, `reconcile`) are thin
-stubs that call reusable `workflow_call` workflows in [`vish288/.github`](https://github.com/vish288/.github)
-(`uses: vish288/.github/.github/workflows/<name>.yml@v1`). The shared `scripts/ci/*.sh` and
-`scripts/derive_artifacts.py` live there too; this repo no longer carries its own copies. A CI fix
-is one PR in `vish288/.github` plus a tag bump, not a change in each server.
+stubs that call reusable `workflow_call` workflows in [`vish288/.github`](https://github.com/vish288/.github),
+pinned by commit SHA with a `# v1` comment (`uses: vish288/.github/.github/workflows/<name>.yml@<sha> # v1`)
+so Dependabot bumps them. The shared `scripts/ci/*.sh` and `scripts/derive_artifacts.py` live there
+too; this repo no longer carries its own copies. A CI fix is one PR in `vish288/.github` plus a tag
+bump, not a change in each server.
+
+`publish.yml` is the one stub that is not a single `uses:` call: the `pypa/gh-action-pypi-publish`
+job must stay a top-level job in this repo (PyPI trusted publishing checks the OIDC
+`job_workflow_ref`), so the stub wires `prepare → pypi → finish` where `prepare`/`finish` are the
+reusable `publish-prepare.yml` / `publish-finish.yml` and `pypi` is local with `environment: pypi`.
 
 ```bash
 gh workflow run release.yml -f version=0.1.0
@@ -172,9 +178,10 @@ gh workflow run release.yml -f bump=minor -f dry_run=true  # preview changelog, 
    `github-actions[bot]` (Verified); the job then fails unless `verification.verified` is true.
    `main` and the tag ref are moved with `RELEASE_PAT` (a fast-forward that fails if `main` moved
    mid-run; the PAT bypasses the ruleset). `release.yml` then dispatches `publish.yml`, and the PAT's tag push no longer triggers publish (publish.yml is dispatch-only).
-2. `publish.yml` runs as split, idempotent jobs (`status → build → pypi → github-release →
-   registry`): each target is checked first and written only when not already done, so PyPI, the
-   GitHub release and the MCP Registry each complete independently and recoverably.
+2. `publish.yml` runs as split, idempotent jobs (`prepare` = status → build, then the local
+   `pypi` job, then `finish` = confirm-pypi → github-release → registry): each target is checked
+   first and written only when not already done, so PyPI, the GitHub release and the MCP Registry
+   each complete independently and recoverably.
 3. Recovery of a failed publish is `gh run rerun <id> --failed` or `gh workflow run publish.yml
    --ref refs/tags/vX.Y.Z`; both are no-ops for targets that are already done.
 4. `reconcile.yml` does this unattended — about 5 min after a failed publish run, then every 6 h on

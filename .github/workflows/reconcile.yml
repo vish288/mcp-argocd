@@ -9,5 +9,7 @@ on:
   workflow_dispatch:
 jobs:
   reconcile:
-    uses: vish288/.github/.github/workflows/reconcile.yml@81cb5c053ebd2d1ae7897704dd8c35b1a925daf1
-    secrets: inherit
+    uses: vish288/.github/.github/workflows/reconcile.yml@60e8ff1e6238f439d4428b3d0897c0d76f795354 # v1
+    permissions:
+      contents: read
+      actions: write
