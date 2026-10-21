@@ -127,3 +127,15 @@ def test_validate_missing_url():
 def test_validate_missing_token():
     with pytest.raises(ValueError, match="ARGOCD_TOKEN"):
         ArgoCDConfig(url="https://a.example.com", token="").validate()
+
+
+def test_invalid_timeout_names_the_variable():
+    with _env(ARGOCD_URL="https://a.example.com", ARGOCD_TOKEN="tok", ARGOCD_TIMEOUT="30s"):
+        with pytest.raises(ValueError, match="ARGOCD_TIMEOUT"):
+            ArgoCDConfig.from_env()
+
+
+def test_zero_timeout_rejected_as_positive():
+    with _env(ARGOCD_URL="https://a.example.com", ARGOCD_TOKEN="tok", ARGOCD_TIMEOUT="0"):
+        with pytest.raises(ValueError, match="positive"):
+            ArgoCDConfig.from_env()

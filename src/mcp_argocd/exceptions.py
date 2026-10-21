@@ -41,6 +41,27 @@ class ArgoCDConflictError(ArgoCDApiError):
     """Raised on 400/409 with grpc code 9 (FailedPrecondition) or 10 (Aborted)."""
 
 
+class ArgoCDRateLimitError(ArgoCDApiError):
+    """Raised on 429 when the request was not resolved by the bounded retry.
+
+    ``retry_after`` is the parsed ``Retry-After`` delta-seconds (None when the
+    header was absent or an HTTP-date); it is surfaced in the error envelope so
+    the caller knows how long to wait before retrying.
+    """
+
+    def __init__(
+        self,
+        status_code: int,
+        message: str,
+        grpc_code: int | None = None,
+        body: str = "",
+        *,
+        retry_after: float | None = None,
+    ) -> None:
+        super().__init__(status_code, message, grpc_code, body)
+        self.retry_after = retry_after
+
+
 class ArgoCDWriteDisabledError(ArgoCDError):
     """Raised when a write operation is attempted in read-only mode."""
 

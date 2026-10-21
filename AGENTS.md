@@ -18,13 +18,13 @@ deprecations do not affect it.
 ## Architecture
 
 - **Entry point**: `src/mcp_argocd/__init__.py` — click CLI, loads `.env`, runs the FastMCP server
-- **Client**: `src/mcp_argocd/client.py` — async httpx client; path-prefix-safe `{url}/api/v1` base with `/api/version` requested absolutely; grpc-gateway error mapping; `stream_lines` for logs
+- **Client**: `src/mcp_argocd/client.py` — async httpx client; path-prefix-safe `{url}/api/v1` base with `/api/version` requested absolutely; grpc-gateway error mapping; `stream_lines` for logs. Transport (R2): a per-phase `httpx.Timeout` with the connect phase capped at 10s and `AsyncHTTPTransport(retries=2)` for connection-level failures; GET-only status retries (502/503/504 with jitter, and 429 when `Retry-After` ≤ 5s), max 2 attempts — writes are never retried; a 429 that is not resolved surfaces `retry_after` via `ArgoCDRateLimitError`. Worst-case latency against a hard-down host is roughly `2 × (3 × connect-cap + timeout) + jitter` — the connect cap is 10s, the two outer attempts are the GET status-retry and each wraps httpx's three connect tries (`retries=2`)
 - **Tools**: `src/mcp_argocd/servers/argocd.py` — all 37 FastMCP tool registrations and the `_slim_*` functions
 - **Resources**: `src/mcp_argocd/servers/resources.py` — 7 MCP resources (4 `resource://rules/*`, 3 `resource://guides/*`), content in `src/mcp_argocd/resources/*.md`
 - **Prompts**: `src/mcp_argocd/servers/prompts.py` — 7 MCP prompts (multi-tool workflows)
 - **Helpers**: `src/mcp_argocd/servers/_helpers.py` — file loader with traversal guard, `_scrub` over one `SECRET_KEYS` tuple, `_page`, `_split_app_name`, `_parse_resource_selector`, `_truncate`, `_terminal`
 - **Config**: `src/mcp_argocd/config.py` — `ArgoCDConfig` built from env vars
-- **Exceptions**: `src/mcp_argocd/exceptions.py` — `ArgoCDError` base; `ArgoCDApiError` (with `grpc_code`), `ArgoCDAuthError`, `ArgoCDNotFoundError`, `ArgoCDConflictError`, `ArgoCDWriteDisabledError`, `ArgoCDTimeoutError`, `ArgoCDConnectionError`
+- **Exceptions**: `src/mcp_argocd/exceptions.py` — `ArgoCDError` base; `ArgoCDApiError` (with `grpc_code`), `ArgoCDAuthError`, `ArgoCDNotFoundError`, `ArgoCDConflictError`, `ArgoCDRateLimitError` (with `retry_after`), `ArgoCDWriteDisabledError`, `ArgoCDTimeoutError`, `ArgoCDConnectionError`
 - **Tests**: `tests/` — `unit/test_tools.py`, `test_tool_contract.py`, `test_client.py`, `test_config.py`, `test_exceptions.py`, `test_helpers.py`, `test_server_assembly.py`, `test_resources.py`, `test_prompts.py`, `test_doc_parity.py`, plus `tests/test_links.py`. Fixtures in `tests/fixtures/` and shared fixtures in `tests/conftest.py`
 
 ## Development

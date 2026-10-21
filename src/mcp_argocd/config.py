@@ -106,7 +106,17 @@ class ArgoCDConfig:
             or os.getenv("ARGOCD_API_TOKEN", "")
         )
         read_only = _read_only("ARGOCD_READ_ONLY")
-        timeout = int(os.getenv("ARGOCD_TIMEOUT", "30"))
+        raw_timeout = os.getenv("ARGOCD_TIMEOUT", "30")
+        try:
+            timeout = int(raw_timeout)
+        except ValueError:
+            msg = f"ARGOCD_TIMEOUT must be an integer number of seconds, got {raw_timeout!r}"
+            raise ValueError(msg) from None
+        if timeout <= 0:
+            msg = (
+                f"ARGOCD_TIMEOUT must be a positive integer number of seconds, got {raw_timeout!r}"
+            )
+            raise ValueError(msg)
         ssl_verify = os.getenv("ARGOCD_SSL_VERIFY", "true").lower() not in _FALSEY
         if os.getenv("ARGOCD_INSECURE", "").lower() in _TRUTHY:
             ssl_verify = False

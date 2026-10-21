@@ -195,3 +195,26 @@ async def test_bearer_middleware_streamable_http(monkeypatch: pytest.MonkeyPatch
         assert with_header.status_code != 401
     finally:
         server_mcp.auth = None
+
+
+def test_missing_config_exits_2_with_one_line():
+    """D7: a missing config is one clear ``Error:`` line and exit 2, not a traceback."""
+    runner = CliRunner()
+    with patch.dict("os.environ", {}, clear=True):
+        result = runner.invoke(main, [])
+    assert result.exit_code == 2
+    lines = [ln for ln in result.output.splitlines() if ln.strip()]
+    assert len(lines) == 1
+    assert lines[0].startswith("Error:")
+    assert "ARGOCD_URL" in lines[0]
+    assert result.exception is None or isinstance(result.exception, SystemExit)
+
+
+def test_invalid_timeout_exits_2():
+    """A bad ARGOCD_TIMEOUT is surfaced as the same one-line exit-2 error."""
+    runner = CliRunner()
+    env = {"ARGOCD_URL": "https://a.example.com", "ARGOCD_TOKEN": "t", "ARGOCD_TIMEOUT": "abc"}
+    with patch.dict("os.environ", env, clear=True):
+        result = runner.invoke(main, [])
+    assert result.exit_code == 2
+    assert "ARGOCD_TIMEOUT" in result.output

@@ -27,6 +27,7 @@ from ..exceptions import (
     ArgoCDApiError,
     ArgoCDConnectionError,
     ArgoCDError,
+    ArgoCDRateLimitError,
     ArgoCDTimeoutError,
     ArgoCDWriteDisabledError,
 )
@@ -267,6 +268,14 @@ def _err(error: Exception) -> dict[str, Any]:
         detail["hint"] = (
             "Operation still running. Call argocd_get_operation to check, or raise "
             "timeout_seconds (max 600)."
+        )
+    elif isinstance(error, ArgoCDRateLimitError):
+        detail["status_code"] = error.status_code
+        detail["body"] = error.body
+        if error.retry_after is not None:
+            detail["retry_after"] = error.retry_after
+        detail["hint"] = (
+            "Rate limited by the Argo CD API. Wait for retry_after seconds, then retry."
         )
     elif isinstance(error, ArgoCDApiError):
         detail["status_code"] = error.status_code

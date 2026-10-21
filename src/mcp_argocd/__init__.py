@@ -49,7 +49,9 @@ class _BearerTokenVerifier(TokenVerifier):
 @click.option("--argocd-token", hidden=True, help="Deprecated: set ARGOCD_TOKEN instead")
 @click.option("--read-only", is_flag=True, help="Disable write operations")
 @click.option("--insecure", is_flag=True, help="Skip TLS verification (ARGOCD_SSL_VERIFY=false)")
+@click.pass_context
 def main(
+    ctx: click.Context,
     transport: str,
     port: int,
     host: str,
@@ -74,6 +76,18 @@ def main(
         os.environ["ARGOCD_READ_ONLY"] = "true"
     if insecure:
         os.environ["ARGOCD_SSL_VERIFY"] = "false"
+
+    # Validate configuration before the server starts its handshake (D7): a bad
+    # config is one clear line and exit 2, not a 55-line traceback from inside the
+    # FastMCP lifespan. The lifespan keeps its own validate() for the in-process
+    # test path.
+    from .config import ArgoCDConfig
+
+    try:
+        ArgoCDConfig.from_env().validate()
+    except ValueError as e:
+        click.echo(f"Error: {e}", err=True)
+        ctx.exit(2)
 
     if transport == "sse":
         click.echo(
