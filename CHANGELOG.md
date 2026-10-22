@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.5.3] - 2026-10-22
+
+### Bug Fixes
+- fix(transport): per-phase timeout, GET retries, clean startup (R2) (2451e99)
+
+### Chores
+- chore(fleet): template v1.1.1 (a247247)
+- chore: adopt the vish288/.github Copier template (v1.1.0) (7d7d642)
+
+
 ## [0.5.2] - 2026-10-18
 
 ### Bug Fixes

@@ -1,6 +1,6 @@
 {
   "name": "mcp-argocd",
-  "version": "0.5.2",
+  "version": "0.5.3",
   "description": "Argo CD MCP server (MCP 2026-07-28): status, sync, rollback, drift, AppSets; writes or read-only",
   "mcpServers": {
     "mcp-argocd": {
