@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.5.4] - 2026-11-04
+
+### Bug Fixes
+- fix(deps): bump authlib, certifi and dnspython for open security advisories (7495a45)
+
+
 ## [0.5.3] - 2026-10-22
 
 ### Bug Fixes
