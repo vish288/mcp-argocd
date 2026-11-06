@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.6.0] - 2026-11-06
+
+### Features
+- feat!: drop Python 3.10 (66cbf8d)
+
+### Bug Fixes
+- fix(deps): refresh uv.lock for security advisories (1fc7d4e)
+
+### Chores
+- chore(fleet): template v1.3.0 (11a7185)
+
+### Other
+- ci: pin reusable workflows to v1.3.1 (7f6b8c9)
+- ci: pin reusable workflows to the 3.14-matrix release (162deea)
+
+
 ## [0.5.5] - 2026-11-04
 
 ### Chores
