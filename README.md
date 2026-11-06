@@ -159,7 +159,7 @@ p, role:mcp-ro, repositories, get, *, allow
 | Component | Supported |
 |---|---|
 | Argo CD | 3.3+ (OSS, Akuity, OpenShift GitOps); most tools also work on 2.x |
-| Python | 3.10, 3.11, 3.12, 3.13, 3.14 |
+| Python | 3.11, 3.12, 3.13, 3.14 |
 | Transports | stdio, streamable-http, sse (deprecated) |
 | MCP spec | 2026-07-28 (MCP 2.0); compatible with 2025-11-25 |
 

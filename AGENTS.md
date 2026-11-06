@@ -37,7 +37,7 @@ uv run ruff format --check .   # CI runs --check; formatting drift fails the bui
 ```
 
 `pytest` uses `asyncio_mode = "auto"` — async tests need no marker. Ruff line length is 100,
-target py310; lint rules include `S` (bandit), `EM`, `N`, `UP`. `tests/**` waives `S101`,
+target py311; lint rules include `S` (bandit), `EM`, `N`, `UP`. `tests/**` waives `S101`,
 `S105`, `S106`.
 
 ## Patterns

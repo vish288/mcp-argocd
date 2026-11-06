@@ -4,7 +4,7 @@ version = "0.5.5"
 description = "Argo CD MCP server for the MCP 2026-07-28 specification (MCP 2.0): application status, sync, rollback, drift, logs, ApplicationSets and clusters for assistants. Runs with writes, or locked read-only via MCP_READ_ONLY"
 readme = "README.md"
 license = {text = "MIT"}
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 authors = [{name = "vish288"}]
 keywords = [
     "mcp",
@@ -37,7 +37,6 @@ classifiers = [
     "Intended Audience :: Information Technology",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
