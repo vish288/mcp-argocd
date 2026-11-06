@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -15,7 +15,7 @@ from mcp_argocd.servers import argocd as srv
 
 def _ts(delta_hours: float) -> str:
     """RFC-3339 timestamp *delta_hours* from now (relative, so no hard-coded year bomb)."""
-    return (datetime.now(timezone.utc) + timedelta(hours=delta_hours)).isoformat()
+    return (datetime.now(UTC) + timedelta(hours=delta_hours)).isoformat()
 
 
 FIX = Path(__file__).resolve().parents[1] / "fixtures"

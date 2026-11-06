@@ -10,7 +10,7 @@ import re
 import time
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from importlib.metadata import version
 from typing import Annotated, Any, Literal
 from urllib.parse import quote
@@ -1287,7 +1287,7 @@ async def argocd_sync_application(
         body["retryStrategy"] = {"limit": retry_limit}
 
     client = _get_client(ctx)
-    started_after = datetime.now(timezone.utc)
+    started_after = datetime.now(UTC)
     resp = await client.post(f"/applications/{bare}/sync", body)
     if wait:
         want_rev = (((resp or {}).get("operation") or {}).get("sync") or {}).get("revision")
@@ -1349,7 +1349,7 @@ async def argocd_rollback_application(
         body["prune"] = True
     if dry_run:
         body["dryRun"] = True
-    started_after = datetime.now(timezone.utc)
+    started_after = datetime.now(UTC)
     resp = await client.post(f"/applications/{bare}/rollback", body)
     if wait:
         want_rev = (((resp or {}).get("operation") or {}).get("sync") or {}).get("revision")

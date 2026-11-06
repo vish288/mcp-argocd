@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import ssl
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from email.utils import format_datetime
 from unittest.mock import patch
 
@@ -425,7 +425,7 @@ def test_retry_after_delta_seconds():
 
 
 def test_retry_after_http_date():
-    when = format_datetime(datetime.now(timezone.utc) + timedelta(seconds=100))
+    when = format_datetime(datetime.now(UTC) + timedelta(seconds=100))
     secs = _client_mod._retry_after_seconds(_resp(429, when))
     assert secs is not None
     assert 80 <= secs <= 100

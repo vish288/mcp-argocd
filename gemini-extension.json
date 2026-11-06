@@ -6,7 +6,7 @@
     "mcp-argocd": {
       "command": "uvx",
       "args": [
-        "mcp-argocd"
+        "mcp-argocd@0.5.5"
       ]
     }
   },
