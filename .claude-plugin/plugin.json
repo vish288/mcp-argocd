@@ -1,0 +1,35 @@
+{
+  "name": "mcp-argocd",
+  "displayName": "Argo CD",
+  "version": "0.7.1",
+  "description": "Argo CD MCP server (MCP 2026-07-28): status, sync, rollback, drift, AppSets; writes or read-only",
+  "author": {
+    "name": "vish288"
+  },
+  "homepage": "https://vish288.github.io/mcp-install?server=mcp-argocd",
+  "repository": "https://github.com/vish288/mcp-argocd",
+  "license": "MIT",
+  "userConfig": {
+    "argocd_token": {
+      "type": "string",
+      "title": "ARGOCD_TOKEN",
+      "description": "Argo CD bearer token (also accepts ARGOCD_AUTH_TOKEN or ARGOCD_API_TOKEN)",
+      "required": true,
+      "sensitive": true
+    },
+    "argocd_url": {
+      "type": "string",
+      "title": "ARGOCD_URL",
+      "description": "Argo CD base URL including any path prefix (e.g. https://argocd.example.com)",
+      "required": true,
+      "sensitive": false
+    },
+    "mcp_read_only": {
+      "type": "string",
+      "title": "MCP_READ_ONLY",
+      "description": "Locks the server read-only: write tools and write-workflow prompts are not listed and nothing lifts the lock at runtime. Shared name across the mcp-* servers; set it in the deployer's env",
+      "required": false,
+      "sensitive": false
+    }
+  }
+}

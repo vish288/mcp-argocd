@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "argocd": {
+      "command": "uvx",
+      "args": [
+        "mcp-argocd@0.7.1"
+      ],
+      "env": {
+        "ARGOCD_TOKEN": "${user_config.argocd_token}",
+        "ARGOCD_URL": "${user_config.argocd_url}",
+        "MCP_READ_ONLY": "${user_config.mcp_read_only}"
+      }
+    }
+  }
+}
