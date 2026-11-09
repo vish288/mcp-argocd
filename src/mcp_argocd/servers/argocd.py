@@ -70,6 +70,15 @@ DESTRUCTIVE_IDEMPOTENT = {
     "openWorldHint": True,
 }
 
+# Client-vendor tool _meta (code.claude.com/docs/en/mcp.md). Inert for other clients.
+# anthropic/requiresUserInteraction forces Claude Code's permission prompt on every
+# call to a destructive tool, even in acceptEdits/auto/bypassPermissions, with no
+# "don't ask again". Carried by exactly the destructiveHint tools (a contract test
+# enforces the equivalence). anthropic/maxResultSizeChars raises the 50k-char
+# persist-to-disk threshold (max 500k) for a bulk reader whose output can be large.
+REQUIRE_APPROVAL = {"anthropic/requiresUserInteraction": True}
+LARGE_RESULT = {"anthropic/maxResultSizeChars": 200000}
+
 _log = logging.getLogger(__name__)
 
 _LOCK_SUFFIX = (
@@ -975,7 +984,7 @@ async def argocd_get_application_events(
     return _paginated([_slim_event(e) for e in page], total, has_more, next_offset)
 
 
-@mcp.tool(tags={"argocd", "applications", "read"}, annotations=READ)
+@mcp.tool(tags={"argocd", "applications", "read"}, annotations=READ, meta=LARGE_RESULT)
 @tool_result
 async def argocd_get_pod_logs(
     ctx: Context,
@@ -1229,7 +1238,7 @@ async def argocd_list_resource_actions(
 # ════════════════════════════════════════════════════════════════════
 
 
-@mcp.tool(tags={"argocd", "applications", "write"}, annotations=DESTRUCTIVE)
+@mcp.tool(tags={"argocd", "applications", "write"}, annotations=DESTRUCTIVE, meta=REQUIRE_APPROVAL)
 @tool_result(write=True)
 async def argocd_sync_application(
     ctx: Context,
@@ -1304,7 +1313,7 @@ async def argocd_sync_application(
     return _ok(_requested(resp))
 
 
-@mcp.tool(tags={"argocd", "applications", "write"}, annotations=DESTRUCTIVE)
+@mcp.tool(tags={"argocd", "applications", "write"}, annotations=DESTRUCTIVE, meta=REQUIRE_APPROVAL)
 @tool_result(write=True)
 async def argocd_rollback_application(
     ctx: Context,
@@ -1367,7 +1376,11 @@ async def argocd_rollback_application(
     return _ok(op)
 
 
-@mcp.tool(tags={"argocd", "applications", "write"}, annotations=DESTRUCTIVE_IDEMPOTENT)
+@mcp.tool(
+    tags={"argocd", "applications", "write"},
+    annotations=DESTRUCTIVE_IDEMPOTENT,
+    meta=REQUIRE_APPROVAL,
+)
 @tool_result(write=True)
 async def argocd_terminate_operation(
     ctx: Context,
@@ -1497,7 +1510,7 @@ async def argocd_patch_application(
     return _ok(_slim_app(resp or {}))
 
 
-@mcp.tool(tags={"argocd", "applications", "write"}, annotations=DESTRUCTIVE)
+@mcp.tool(tags={"argocd", "applications", "write"}, annotations=DESTRUCTIVE, meta=REQUIRE_APPROVAL)
 @tool_result(write=True)
 async def argocd_delete_application(
     ctx: Context,
@@ -1525,7 +1538,7 @@ async def argocd_delete_application(
     return _ok({"status": "deleted", "name": name, "cascade": cascade})
 
 
-@mcp.tool(tags={"argocd", "applications", "write"}, annotations=DESTRUCTIVE)
+@mcp.tool(tags={"argocd", "applications", "write"}, annotations=DESTRUCTIVE, meta=REQUIRE_APPROVAL)
 @tool_result(write=True)
 async def argocd_run_resource_action(
     ctx: Context,
@@ -1575,7 +1588,7 @@ async def argocd_run_resource_action(
     )
 
 
-@mcp.tool(tags={"argocd", "applications", "write"}, annotations=DESTRUCTIVE)
+@mcp.tool(tags={"argocd", "applications", "write"}, annotations=DESTRUCTIVE, meta=REQUIRE_APPROVAL)
 @tool_result(write=True)
 async def argocd_delete_resource(
     ctx: Context,

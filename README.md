@@ -303,6 +303,7 @@ The server provides MCP prompts — multi-tool workflow templates clients surfac
 - **MCP tool annotations**: every tool declares `readOnlyHint`, `destructiveHint`, and `idempotentHint`.
 - **No credential storage**: the server reads the token from the environment at startup and never persists it.
 - **Destructive tools**: `argocd_sync_application`, `argocd_rollback_application`, `argocd_terminate_operation`, `argocd_delete_application`, `argocd_run_resource_action`, `argocd_delete_resource`.
+- **Approval on destructive tools**: each destructive tool carries the `anthropic/requiresUserInteraction` client-vendor meta, so Claude Code forces a permission prompt on every call — even under `acceptEdits`, `auto`, and `bypassPermissions` — with no "don't ask again". The meta is inert for clients that do not read it.
 
 ## Permissions
 

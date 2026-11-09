@@ -400,6 +400,24 @@ async def test_write_names_match_annotations():
     assert WRITE_NAMES == derived
 
 
+async def test_destructive_tools_require_user_interaction():
+    """Exactly the destructiveHint tools carry the ``anthropic/requiresUserInteraction``
+    meta (G8): Claude Code then forces a permission prompt on every destructive call and
+    never on a read. ``maxResultSizeChars`` on a bulk reader is a different meta key and
+    must not count as requiresUserInteraction.
+    """
+    for t in await mcp._list_tools():
+        destructive = bool(t.annotations and t.annotations.destructive_hint)
+        requires = bool((t.meta or {}).get("anthropic/requiresUserInteraction"))
+        assert destructive == requires, t.name
+
+
+async def test_bulk_reader_raises_result_size_cap():
+    """The pod-logs reader lifts the 50k persist-to-disk cap so a large tail survives."""
+    logs = next(t for t in await mcp._list_tools() if t.name == "argocd_get_pod_logs")
+    assert (logs.meta or {}).get("anthropic/maxResultSizeChars") == 200000
+
+
 async def test_network_error_is_an_error_result_with_hint(tool_client):
     """A server-unreachable error (httpx.ConnectError) is an expected failure: an
     ``isError`` result with an actionable hint, not a logged bug/traceback.
