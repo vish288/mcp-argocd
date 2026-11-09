@@ -6,7 +6,7 @@ MCP server that wraps the Argo CD REST API. Works with Argo CD 3.3+ on any insta
 
 - **Install**: `uvx mcp-argocd`
 - **Version**: 0.6.0
-- **Python**: >=3.10
+- **Python**: >=3.11
 - **License**: MIT
 - **Protocol**: MCP 2026-07-28 (MCP 2.0); compatible with 2025-11-25 clients; built on FastMCP 4.x
 - **Transport**: stdio (default), streamable-http (recommended for remote), SSE (deprecated by the 2026-07-28 spec)
