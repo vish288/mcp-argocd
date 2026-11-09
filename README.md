@@ -171,6 +171,12 @@ Built on FastMCP 4.x. A regression test lists all 37 tools with an in-memory MCP
 deprecated by the 2026-07-28 specification; it still works and prints a warning. The server uses
 no roots, sampling, logging, elicitation, or resource subscriptions.
 
+`serverInfo` reports the installed package version and the install page as `websiteUrl`, so every
+response names the exact release. List results (`tools/list`, `prompts/list`, `resources/list`)
+carry the 2026-07-28 cache hints `ttlMs: 300000` (5-minute TTL) and `cacheScope: private` — private
+because `resources/read` can vary by the per-user token. Both are inert for clients that do not
+read them.
+
 ### Error results
 
 Expected failures — a missing app (404), a denied permission (403), a write that reaches the
