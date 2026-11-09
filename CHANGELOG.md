@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.7.1] - 2026-11-09
+
+### Bug Fixes
+- fix(annotations): gate create/patch writes behind approval (5276726)
+
+
 ## [0.7.0] - 2026-11-09
 
 ### Features
