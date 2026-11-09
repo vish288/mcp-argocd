@@ -79,8 +79,10 @@ A truthy `MCP_READ_ONLY` (shared across the mcp-* servers) or the `ARGOCD_READ_O
 truthy one wins; a falsy value never unlocks and logs one WARNING), and the lifespan calls
 `_lock_read_only(server)`, which `server.disable(tags={"write"})` so write tools and write-workflow
 prompts drop out of `tools/list`/`prompts/list` and `tools/call` on them returns "Unknown tool". The
-lock is computed once and never cleared; `src/` never calls `enable`/`enable_components`. Every write
-tool still calls `_check_write(ctx)` (via `@tool_result(write=True)`) as defence in depth.
+lock is computed once and never cleared; the only `enable` call in `src/` is the `MCP_TOOLSETS`
+allowlist (`_apply_toolsets`), which runs before the lock and never names the `write` tag, so the
+lock stays the last word. Every write tool still calls `_check_write(ctx)` (via
+`@tool_result(write=True)`) as defence in depth.
 
 ## Naming verbs
 
@@ -98,6 +100,24 @@ tool still calls `_check_write(ctx)` (via `@tool_result(write=True)`) as defence
 | Clusters | 3 | list, get, invalidate cache |
 | Repositories | 3 | list, refs, apps |
 | Server and account | 4 | version, userinfo, can-i, settings |
+
+### Tool surface (MCP_TOOLSETS)
+
+`MCP_TOOLSETS` (or `--toolsets`) switches `tools/list` to an allowlist of coarse groups — named
+sets of the raw domain tags the tools already carry — so a client with a tool budget sees fewer.
+Resources and prompts stay listed regardless (fastmcp `enable(components=...)` re-lists them after
+the `enable(tags=..., only=True)` allowlist), and the read-only lock runs after the allowlist so it
+only ever removes more tools. Unset or `all` lists every tool; an unknown name exits 2.
+
+| Group | Raw tags | Tools | Read-only |
+|---|---|---|---|
+| `apps` | applications | 22 | 14 |
+| `appsets` | applicationsets | 3 | 3 |
+| `admin` | projects, clusters, repositories, server | 12 | 11 |
+| `all` (default) | every tag | 37 | 28 |
+
+The map is `TOOLSET_GROUPS` in `servers/argocd.py`; `_apply_toolsets` runs in the lifespan before
+`_lock_read_only`. A test asserts every tool's one domain tag belongs to exactly one group.
 
 ## Common Workflows
 
@@ -133,6 +153,7 @@ returns a user message (workflow template) plus an assistant acknowledgment.
 | `ARGOCD_TOKEN` | yes | — | Bearer token; also reads `ARGOCD_AUTH_TOKEN`, `ARGOCD_API_TOKEN` |
 | `MCP_READ_ONLY` | no | `false` | Shared name across the mcp-* servers. Any value other than `false`/`0`/`no`/`off`/empty locks the server read-only: the 9 write tools and write-workflow prompts are not listed, and nothing can turn it back off at runtime |
 | `ARGOCD_READ_ONLY` | no | `false` | Per-server alias for `MCP_READ_ONLY`; either one locks the server read-only. `--read-only` can only raise the lock |
+| `MCP_TOOLSETS` | no | all | Comma list of tool groups (`apps`, `appsets`, `admin`); unset or `all` lists every tool. Validated at startup (unknown name exits 2); `MCP_READ_ONLY` applies after the selection |
 | `ARGOCD_HTTP_BEARER_TOKEN` | no | — | Bearer token (min 16 chars) required to bind an HTTP transport to a non-loopback host; clients send `Authorization: Bearer` |
 | `ARGOCD_TIMEOUT` | no | `30` | Request timeout in seconds |
 | `ARGOCD_SSL_VERIFY` | no | `true` | `false`/`0`/`no` skips verification; `ARGOCD_INSECURE=true` is an alias |
@@ -142,7 +163,7 @@ HTTP transports add a network layer: Host/Origin protection is not authenticatio
 non-loopback host requires `ARGOCD_HTTP_BEARER_TOKEN` (min 16 chars, constant-time compared via a
 `TokenVerifier` subclass). The CLI refuses to start on a non-loopback host without it.
 
-CLI flags override env: `--argocd-url`, `--read-only`, `--insecure`, plus
+CLI flags override env: `--argocd-url`, `--read-only`, `--insecure`, `--toolsets`, plus
 `--transport {stdio,sse,streamable-http}` with `--host` and `--port` for non-stdio transports.
 `--read-only` can only raise the lock (it sets `ARGOCD_READ_ONLY=true`); there is no
 `--no-read-only`, so argv can never unlock a server whose env already locked it.

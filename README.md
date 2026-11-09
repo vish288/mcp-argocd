@@ -130,10 +130,30 @@ Drop `MCP_READ_ONLY` to allow writes. On a shared or hosted server put it in the
 | `ARGOCD_TOKEN` | Yes | - | Bearer token. Also reads `ARGOCD_AUTH_TOKEN`, `ARGOCD_API_TOKEN`. |
 | `MCP_READ_ONLY` | No | `false` | Shared name across the mcp-* servers. Any value other than `false`/`0`/`no`/`off`/empty locks the server read-only: the 9 write tools and write-workflow prompts are not listed, and nothing can turn it back off at runtime |
 | `ARGOCD_READ_ONLY` | No | `false` | Per-server alias for `MCP_READ_ONLY`; either one locks the server read-only. `--read-only` can only raise the lock |
+| `MCP_TOOLSETS` | No | all | Comma list of tool groups to expose (see Toolsets); unset or `all` lists every tool. `MCP_READ_ONLY` still applies after the selection |
 | `ARGOCD_HTTP_BEARER_TOKEN` | No | - | Bearer token (min 16 chars) required to bind an HTTP transport to a non-loopback host; clients send `Authorization: Bearer <token>` |
 | `ARGOCD_TIMEOUT` | No | `30` | Request timeout in seconds |
 | `ARGOCD_SSL_VERIFY` | No | `true` | `false` skips SSL verification (`ARGOCD_INSECURE=true` is an alias) |
 | `ARGOCD_APP_NAMESPACE` | No | - | Default `appNamespace` for apps-in-any-namespace installs |
+
+### Toolsets
+
+Clients cap how many tools they forward (Cursor warns past 40, across all servers). `MCP_TOOLSETS`
+(or `--toolsets`) shrinks `tools/list` to one or more named groups; unset or `all` lists every
+tool. Names are lowercase and comma-separated; an unknown name exits 2 with the valid list.
+`MCP_READ_ONLY` still applies afterward and only ever removes more tools (the read-only column).
+
+| Group | Raw tags | Tools | Read-only |
+|-------|----------|-------|-----------|
+| `apps` | applications | 22 | 14 |
+| `appsets` | applicationsets | 3 | 3 |
+| `admin` | projects, clusters, repositories, server | 12 | 11 |
+| `all` (default) | every tag | 37 | 28 |
+
+```bash
+MCP_TOOLSETS=apps,appsets uvx mcp-argocd    # application + ApplicationSet tools only
+uvx mcp-argocd --toolsets admin             # projects, clusters, repositories, server settings
+```
 
 ## Getting an API token
 

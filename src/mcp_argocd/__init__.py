@@ -49,6 +49,11 @@ class _BearerTokenVerifier(TokenVerifier):
 @click.option("--argocd-token", hidden=True, help="Deprecated: set ARGOCD_TOKEN instead")
 @click.option("--read-only", is_flag=True, help="Disable write operations")
 @click.option("--insecure", is_flag=True, help="Skip TLS verification (ARGOCD_SSL_VERIFY=false)")
+@click.option(
+    "--toolsets",
+    envvar="MCP_TOOLSETS",
+    help="Comma list of tool groups to expose (apps, appsets, admin; default: all)",
+)
 @click.pass_context
 def main(
     ctx: click.Context,
@@ -59,6 +64,7 @@ def main(
     argocd_token: str | None,
     read_only: bool,
     insecure: bool,
+    toolsets: str | None,
 ) -> None:
     """Run the Argo CD MCP server."""
     load_dotenv()
@@ -85,6 +91,19 @@ def main(
 
     try:
         ArgoCDConfig.from_env().validate()
+    except ValueError as e:
+        click.echo(f"Error: {e}", err=True)
+        ctx.exit(2)
+
+    # Validate --toolsets / MCP_TOOLSETS up front so an unknown group is one clear line and
+    # exit 2, not a traceback from inside the lifespan. --toolsets writes the env the
+    # lifespan reads. parse_toolsets raises UnknownToolsetError (a ValueError) on a bad name.
+    if toolsets:
+        os.environ["MCP_TOOLSETS"] = toolsets
+    from .servers.argocd import parse_toolsets
+
+    try:
+        parse_toolsets(os.getenv("MCP_TOOLSETS"))
     except ValueError as e:
         click.echo(f"Error: {e}", err=True)
         ctx.exit(2)
