@@ -26,6 +26,13 @@ MCP_READ_ONLY=true uvx mcp-argocd       # locked read-only: write tools are not 
 
 ## 1-Click Installation
 
+**Claude Code plugin** — one command adds the fleet marketplace, the next installs the server, prompts for `ARGOCD_URL`/`ARGOCD_TOKEN` (the token is stored in the credential store, never written to a config file), and keeps it updated:
+
+```bash
+claude plugin marketplace add vish288/.github
+claude plugin install mcp-argocd@vish288-mcp
+```
+
 [![Install in Cursor](https://cursor.com/deeplink/mcp-install-dark.svg)](https://vish288.github.io/mcp-install?server=mcp-argocd&install=cursor)
 
 [![Install in VS Code](https://img.shields.io/badge/VS_Code-Install_Server-0098FF?style=flat-square&logo=visualstudiocode&logoColor=white)](https://vish288.github.io/mcp-install?server=mcp-argocd&install=vscode)
