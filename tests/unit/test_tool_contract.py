@@ -400,16 +400,38 @@ async def test_write_names_match_annotations():
     assert WRITE_NAMES == derived
 
 
-async def test_destructive_tools_require_user_interaction():
-    """Exactly the destructiveHint tools carry the ``anthropic/requiresUserInteraction``
-    meta (G8): Claude Code then forces a permission prompt on every destructive call and
-    never on a read. ``maxResultSizeChars`` on a bulk reader is a different meta key and
-    must not count as requiresUserInteraction.
+# Write tools that can create or change live cluster state: the destructiveHint tools
+# plus create/patch (a create can deploy workloads via sync policy; a patch can enable
+# auto-sync or retarget a source). argocd_invalidate_cluster_cache is a metadata-only
+# write (it clears Argo CD's cache, changing nothing real) and stays ungated.
+GATED_NAMES = {
+    "argocd_sync_application",
+    "argocd_rollback_application",
+    "argocd_terminate_operation",
+    "argocd_delete_application",
+    "argocd_run_resource_action",
+    "argocd_delete_resource",
+    "argocd_create_application",
+    "argocd_patch_application",
+}
+
+
+async def test_state_changing_writes_require_user_interaction():
+    """Exactly the write tools that change live cluster state carry the
+    ``anthropic/requiresUserInteraction`` meta (G8): Claude Code then forces a permission
+    prompt on every such call — even in acceptEdits/auto/bypassPermissions — and never on
+    a read or a metadata-only write. ``maxResultSizeChars`` on a bulk reader is a
+    different meta key and must not count as requiresUserInteraction.
     """
-    for t in await mcp._list_tools():
-        destructive = bool(t.annotations and t.annotations.destructive_hint)
-        requires = bool((t.meta or {}).get("anthropic/requiresUserInteraction"))
-        assert destructive == requires, t.name
+    tools = await mcp._list_tools()
+    gated = {t.name for t in tools if (t.meta or {}).get("anthropic/requiresUserInteraction")}
+    assert gated == GATED_NAMES
+    # Every gated tool is a write; the sole ungated write is the metadata-only one.
+    assert GATED_NAMES <= WRITE_NAMES
+    assert WRITE_NAMES - GATED_NAMES == {"argocd_invalidate_cluster_cache"}
+    # Every destructiveHint tool is gated (none slips past the prompt).
+    destructive = {t.name for t in tools if t.annotations and t.annotations.destructive_hint}
+    assert destructive <= GATED_NAMES
 
 
 async def test_bulk_reader_raises_result_size_cap():

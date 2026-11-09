@@ -59,6 +59,7 @@ Every tool MUST have `annotations={}` with at minimum `readOnlyHint`.
 - Non-destructive writes: `destructiveHint: False`, `readOnlyHint: False`
 - Destructive writes: `destructiveHint: True`, `readOnlyHint: False`
 - Idempotent writes: add `idempotentHint: True`
+- Approval gating: every write tool that can create or change live cluster state carries `meta=REQUIRE_APPROVAL` (`anthropic/requiresUserInteraction`) — the destructiveHint tools plus `create`/`patch` (a create can deploy via sync policy, a patch can enable auto-sync or retarget); metadata-only writes (cache invalidation) stay ungated. A contract test pins the exact gated set.
 
 ### Tool descriptions
 1-2 sentences. Front-load what it does AND what it returns.

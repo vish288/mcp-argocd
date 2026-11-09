@@ -72,10 +72,13 @@ DESTRUCTIVE_IDEMPOTENT = {
 
 # Client-vendor tool _meta (code.claude.com/docs/en/mcp.md). Inert for other clients.
 # anthropic/requiresUserInteraction forces Claude Code's permission prompt on every
-# call to a destructive tool, even in acceptEdits/auto/bypassPermissions, with no
-# "don't ask again". Carried by exactly the destructiveHint tools (a contract test
-# enforces the equivalence). anthropic/maxResultSizeChars raises the 50k-char
-# persist-to-disk threshold (max 500k) for a bulk reader whose output can be large.
+# call, even in acceptEdits/auto/bypassPermissions, with no "don't ask again". Carried
+# by every write tool that can create or change live cluster state — the destructiveHint
+# tools plus create/patch (a create can deploy via sync policy; a patch can enable
+# auto-sync or retarget). Metadata-only writes (cache invalidation) stay ungated. A
+# contract test pins the exact gated set. anthropic/maxResultSizeChars raises the
+# 50k-char persist-to-disk threshold (max 500k) for a bulk reader whose output can be
+# large.
 REQUIRE_APPROVAL = {"anthropic/requiresUserInteraction": True}
 LARGE_RESULT = {"anthropic/maxResultSizeChars": 200000}
 
@@ -1414,7 +1417,7 @@ async def argocd_terminate_operation(
     return _ok({"status": "terminating", "previous_phase": previous})
 
 
-@mcp.tool(tags={"argocd", "applications", "write"}, annotations=WRITE)
+@mcp.tool(tags={"argocd", "applications", "write"}, annotations=WRITE, meta=REQUIRE_APPROVAL)
 @tool_result(write=True)
 async def argocd_create_application(
     ctx: Context,
@@ -1499,7 +1502,11 @@ async def argocd_create_application(
     return _ok(_slim_app(resp or {}))
 
 
-@mcp.tool(tags={"argocd", "applications", "write"}, annotations=WRITE_IDEMPOTENT)
+@mcp.tool(
+    tags={"argocd", "applications", "write"},
+    annotations=WRITE_IDEMPOTENT,
+    meta=REQUIRE_APPROVAL,
+)
 @tool_result(write=True)
 async def argocd_patch_application(
     ctx: Context,
