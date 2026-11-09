@@ -81,3 +81,4 @@ async def test_server_identity_and_cache_hints(monkeypatch):
         info = result.meta["io.modelcontextprotocol/serverInfo"]
         assert info["version"] == pkg_version("mcp-argocd")
         assert info["websiteUrl"] == "https://vish288.github.io/mcp-install?server=mcp-argocd"
+        assert info["icons"][0]["src"].endswith("mcp-argocd/main/assets/icon.svg")

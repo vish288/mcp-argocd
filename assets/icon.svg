@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="Argo CD MCP server">
+  <title>Argo CD MCP server</title>
+  <rect x="4" y="4" width="120" height="120" rx="14" fill="#847492" stroke="#6f6080" stroke-width="8" />
+  <g fill="none" stroke="#0b0c0f" stroke-width="10" stroke-linecap="square" stroke-linejoin="miter">
+        <path d="M85.2 44.8A30 30 0 1 1 46.3 41.1" stroke-linecap="butt" />
+        <path d="M56.2 31.2L32.6 34.6L48.4 54.8Z" fill="#0b0c0f" stroke="none" />
+        <rect x="54" y="56" width="20" height="20" fill="#0b0c0f" stroke="none" />
+        </g>
+  
+</svg>

@@ -18,7 +18,7 @@ from urllib.parse import quote
 from fastmcp import Context, FastMCP
 from fastmcp.exceptions import ToolError
 from fastmcp.tools import ToolResult
-from mcp.types import TextContent
+from mcp.types import Icon, TextContent
 from pydantic import Field
 
 from ..client import ArgoCDClient
@@ -129,6 +129,13 @@ mcp = FastMCP(
     name="Argo CD MCP Server",
     version=version("mcp-argocd"),
     website_url="https://vish288.github.io/mcp-install?server=mcp-argocd",
+    icons=[
+        Icon(
+            src="https://raw.githubusercontent.com/vish288/mcp-argocd/main/assets/icon.svg",
+            mime_type="image/svg+xml",
+            sizes=["any"],
+        )
+    ],
     instructions=(
         "Provides tools for Argo CD — application status, sync, rollback, drift,"
         " logs, ApplicationSets, clusters, repositories, and projects."
