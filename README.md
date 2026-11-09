@@ -363,6 +363,28 @@ ARGOCD_HTTP_BEARER_TOKEN=$(openssl rand -hex 32) \
   uvx mcp-argocd --transport streamable-http --host 0.0.0.0 --port 9000
 ```
 
+### Observability
+
+An HTTP transport exposes `GET /health`, an unauthenticated liveness probe that returns the
+server name and version (no config, no secrets) for container and load-balancer checks:
+
+```bash
+curl -s http://127.0.0.1:9000/health
+# {"status":"ok","name":"Argo CD MCP Server","version":"0.7.1"}
+```
+
+FastMCP emits OpenTelemetry spans for `tools/call` and propagates trace context by default — no
+opt-in needed. Point it at a collector with the standard OTel environment and launch under the
+auto-instrumentation wrapper:
+
+```bash
+OTEL_EXPORTER_OTLP_ENDPOINT=http://collector:4317 \
+  opentelemetry-instrument uvx mcp-argocd --transport streamable-http --port 9000
+```
+
+Set `FASTMCP_TELEMETRY_MODE=off` to disable tracing entirely (`propagation_only` keeps trace-context
+propagation without emitting spans).
+
 ## Docker
 
 The image defaults to locked read-only (`MCP_READ_ONLY=true`); pass `-e MCP_READ_ONLY=false` to allow writes.

@@ -15,6 +15,15 @@ Transports: `stdio` (default), `streamable-http` (recommended for remote), and `
 server uses no roots, sampling, logging, elicitation, or resource subscriptions, so the 2026-07-28
 deprecations do not affect it.
 
+## Observability
+
+HTTP transports expose `GET /health` (a `@mcp.custom_route` in `servers/argocd.py`): an
+unauthenticated liveness probe returning `{"status", "name", "version"}` and nothing else —
+FastMCP's auth guards `/mcp`, not custom routes, so it carries no config or secrets. FastMCP 4
+emits OpenTelemetry spans for `tools/call` and propagates trace context by default;
+`OTEL_EXPORTER_OTLP_ENDPOINT` with `opentelemetry-instrument` exports them, and
+`FASTMCP_TELEMETRY_MODE=off` disables it. Tested via `httpx.ASGITransport(mcp.http_app())`.
+
 ## Architecture
 
 - **Entry point**: `src/mcp_argocd/__init__.py` — click CLI, loads `.env`, runs the FastMCP server
