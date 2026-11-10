@@ -3,7 +3,7 @@
     "argocd": {
       "command": "uvx",
       "args": [
-        "mcp-argocd@0.7.1"
+        "mcp-argocd@0.8.0"
       ],
       "env": {
         "ARGOCD_TOKEN": "${user_config.argocd_token}",
