@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.2] - 2026-11-23
+
+### Chores
+- chore(fleet): template v1.6.2 (38b2228)
+- chore(deps): weekly patch 2026-11-22 (51c18d7)
+
+
 ## [0.9.1] - 2026-11-23
 
 ### Features

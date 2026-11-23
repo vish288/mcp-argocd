@@ -402,7 +402,7 @@ The image is published to GHCR for linux/amd64 and linux/arm64. It defaults to l
 docker run --rm -i \
   -e ARGOCD_URL=https://argocd.example.com \
   -e ARGOCD_TOKEN=<token> \
-  ghcr.io/vish288/mcp-argocd:0.9.1
+  ghcr.io/vish288/mcp-argocd:0.9.2
 ```
 
 The image runs as a non-root user and defaults to stdio; pass
@@ -412,7 +412,7 @@ Verify the build provenance before you run it. The attestation is signed by the 
 publish workflow in `vish288/.github`, not by this repo, hence `--signer-repo`:
 
 ```bash
-gh attestation verify oci://ghcr.io/vish288/mcp-argocd:0.9.1 -R vish288/mcp-argocd --signer-repo vish288/.github
+gh attestation verify oci://ghcr.io/vish288/mcp-argocd:0.9.2 -R vish288/mcp-argocd --signer-repo vish288/.github
 ```
 
 To build from source instead, run `docker build -t mcp-argocd .` and use `mcp-argocd` as the image name.
