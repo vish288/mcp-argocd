@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.9.1] - 2026-11-23
+
+### Features
+- feat(release): list the GHCR image in the MCP registry (cfc4ce8)
+
+
 ## [0.9.0] - 2026-11-16
 
 ### Chores
