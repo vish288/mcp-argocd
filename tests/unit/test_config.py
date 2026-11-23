@@ -116,7 +116,7 @@ def test_token_not_in_repr():
     # repr() lands in logs and tracebacks; the bearer token must never appear there.
     config = ArgoCDConfig(url="https://a.example.com", token="super-secret-token")
     assert "super-secret-token" not in repr(config)
-    assert "https://a.example.com" in repr(config)
+    assert f"url={config.url!r}" in repr(config)
 
 
 def test_validate_missing_url():
