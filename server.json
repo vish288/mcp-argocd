@@ -121,8 +121,7 @@
           "format": "string",
           "isSecret": true
         }
-      ],
-      "version": "0.9.1"
+      ]
     }
   ]
 }
