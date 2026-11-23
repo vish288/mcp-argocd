@@ -394,20 +394,28 @@ propagation without emitting spans).
 
 ## Docker
 
-The image defaults to locked read-only (`MCP_READ_ONLY=true`); pass `-e MCP_READ_ONLY=false` to allow writes.
+The image is published to GHCR for linux/amd64 and linux/arm64. It defaults to locked read-only
+(`MCP_READ_ONLY=true`); add `-e MCP_READ_ONLY=false` to allow writes.
 
 ```bash
-docker build -t mcp-argocd .
-
 # stdio, locked read-only (the image default)
 docker run --rm -i \
   -e ARGOCD_URL=https://argocd.example.com \
   -e ARGOCD_TOKEN=<token> \
-  mcp-argocd
+  ghcr.io/vish288/mcp-argocd:0.9.0
 ```
 
 The image runs as a non-root user and defaults to stdio; pass
 `--transport streamable-http --host 0.0.0.0` (with `ARGOCD_HTTP_BEARER_TOKEN`) to serve over HTTP.
+
+Verify the build provenance before you run it. The attestation is signed by the shared
+publish workflow in `vish288/.github`, not by this repo, hence `--signer-repo`:
+
+```bash
+gh attestation verify oci://ghcr.io/vish288/mcp-argocd:0.9.0 -R vish288/mcp-argocd --signer-repo vish288/.github
+```
+
+To build from source instead, run `docker build -t mcp-argocd .` and use `mcp-argocd` as the image name.
 
 ## FAQ
 
