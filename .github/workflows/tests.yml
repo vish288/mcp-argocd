@@ -5,7 +5,7 @@ permissions:
   contents: read
 jobs:
   test:
-    uses: vish288/.github/.github/workflows/tests.yml@e2cf5fe093f88ff87ab5d2e460b552219dd6d78f # v1.6.1
+    uses: vish288/.github/.github/workflows/tests.yml@cf0da43c7491a2b77b19afdc765da33b17208330 # v1.6.1
     with:
       coverage_min: 98
       service: mcp-argocd
